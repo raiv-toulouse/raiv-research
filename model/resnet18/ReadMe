@@ -1,0 +1,19 @@
+
+nomenclature des fichier model.ckpt
+
+la nomenclature des fichiers comporte le type de pièce puis le nombre d'images qui ont servies à l'entrainement:
+
+ex: Cylindrex4000.ckpt
+
+ATTENTION!! :
+
+Les modèles ayant un tailleDuCropFinal > 56 ne sont pas efficaces car il y a trop de pièces dans l'image et ca porte confusion au réseau. Donc pour les entrainement il faut mettre minimum 56 au 
+
+centerCrop ligne 26 et 33 dansmyImageModule.py dans ImageProcessing sur la machine DL. 
+
+Le meilleur modèle actuel est:
+
+ - pour les pièces cylindriques: Cylindrex4000.ckpt
+ - pour les pièces plates: PiecesPlatesx200.ckpt
+ 
+ Pour ceux reprenant la manipulation, il est conseillé de refaire la calibration ainsi que de nouvelles banques d'images.
