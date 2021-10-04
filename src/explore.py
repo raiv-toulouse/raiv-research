@@ -42,9 +42,9 @@ WIDTH = HEIGHT = 56 # Size of cropped image
 
 image_controller = ImageController(image_topic='/usb_cam2/image_raw')
 
-mtx = np.load('/home/student1/catkin_ws_noetic/src/bin_picking/ai_manager/src/BlobDetector/camera_calibration/Camera_data/' + 'newcam_mtx.npy')
-dist = np.load('/home/student1/catkin_ws_noetic/src/bin_picking/ai_manager/src/BlobDetector/camera_calibration/Camera_data/' + 'dist.npy')
-new_camera_mtx = np.load('/home/student1/catkin_ws_noetic/src/bin_picking/ai_manager/src/BlobDetector/camera_calibration/Camera_data/' + 'new_camera_mtx.npy')
+mtx = np.load('/home/student1/catkin_ws_noetic/src/bin_picking/ai_manager/src/BlobDetector/camera_calibration/camera_data/' + 'newcam_mtx.npy')
+dist = np.load('/home/student1/catkin_ws_noetic/src/bin_picking/ai_manager/src/BlobDetector/camera_calibration/camera_data/' + 'dist.npy')
+new_camera_mtx = np.load('/home/student1/catkin_ws_noetic/src/bin_picking/ai_manager/src/BlobDetector/camera_calibration/camera_data/' + 'new_camera_mtx.npy')
 
 def imshow(images, title=None, pil_image = False):
     """Imshow for Tensor. Used for DEBUG purpose"""
@@ -160,16 +160,16 @@ class MainWindow(QWidget):
         self.init_z = 0.3
 
         # calcul du déplacement à effectuer pour passer du point courant au point de décalage
-        self.move_init_x = self.init_x - robot2.robot.get_current_pose().pose.position.x
-        self.move_init_y = self.init_y - robot2.robot.get_current_pose().pose.position.y
-        self.move_init_z = self.init_z - robot2.robot.get_current_pose().pose.position.z
+        self.move_init_x = self.init_x - robot2.robot_commander.get_current_pose().pose.position.x
+        self.move_init_y = self.init_y - robot2.robot_commander.get_current_pose().pose.position.y
+        self.move_init_z = self.init_z - robot2.robot_commander.get_current_pose().pose.position.z
 
         # mouvement vers le point de décalage
         robot2.relative_move(self.move_init_x, self.move_init_y, self.move_init_z)
 
         self.pose_init = Pose()
-        self.pose_init.position.x = robot2.robot.get_current_pose().pose.position.x
-        self.pose_init.position.y = robot2.robot.get_current_pose().pose.position.y
+        self.pose_init.position.x = robot2.robot_commander.get_current_pose().pose.position.x
+        self.pose_init.position.y = robot2.robot_commander.get_current_pose().pose.position.y
         self.pose_init.position.z = 0.3
         self.pose_init.orientation.x = -0.4952562586434166
         self.pose_init.orientation.y = 0.49864161678730506
@@ -262,8 +262,8 @@ class MainWindow(QWidget):
             goal_y = -(xyz[1][0] / 100 - 0 / 100)
 
             # calcul du déplacement à effectuer pour passer du point courant au point cible
-            move_x = goal_x - robot2.robot.get_current_pose().pose.position.x
-            move_y = goal_y - robot2.robot.get_current_pose().pose.position.y
+            move_x = goal_x - robot2.robot_commander.get_current_pose().pose.position.x
+            move_y = goal_y - robot2.robot_commander.get_current_pose().pose.position.y
 
             # mouvement vers le point cible
             robot2.relative_move(move_x, move_y, 0)
