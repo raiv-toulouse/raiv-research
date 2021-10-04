@@ -25,13 +25,13 @@ if __name__ == '__main__':
     eef_link = myRobot.move_group.get_end_effector_link()
     print("============ End effector link: %s" % eef_link)
     # We can get a list of all the groups in the robot:
-    group_names = myRobot.robot.get_group_names()
-    print("============ Available Planning Groups:", myRobot.robot.get_group_names())
+    group_names = myRobot.robot_commander.get_group_names()
+    print("============ Available Planning Groups:", myRobot.robot_commander.get_group_names())
     # Sometimes for debugging it is useful to print the entire state of the robot
     print("============ Printing robot current pose")
     print(myRobot.get_current_pose())
     print("============ Printing robot state")
-    print(myRobot.robot.get_current_state())
+    print(myRobot.robot_commander.get_current_state())
     print("============ Press `Enter` to execute a movement using a joint state goal ...")
     input()
     # Test of positioning with angular coordinates

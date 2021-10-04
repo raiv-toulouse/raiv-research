@@ -108,8 +108,8 @@ class Canvas(QWidget):
             goal_y = -xyz[1][0] / 100
 
             # calcul du déplacement à effectuer pour passer du point courant au point cible
-            move_x = goal_x - robot2.robot.get_current_pose().pose.position.x
-            move_y = goal_y - robot2.robot.get_current_pose().pose.position.y
+            move_x = goal_x - robot2.robot_commander.get_current_pose().pose.position.x
+            move_y = goal_y - robot2.robot_commander.get_current_pose().pose.position.y
 
             # mouvement vers le point cible
             robot2.relative_move(move_x, move_y, 0)

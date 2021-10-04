@@ -13,7 +13,7 @@ import torchvision
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib
-from BlobDetector.camera_calibration.PerspectiveCalibration import PerspectiveCalibration
+#from BlobDetector.camera_calibration.PerspectiveCalibration import PerspectiveCalibration
 from tf.transformations import euler_from_quaternion, quaternion_from_euler
 import moveit_commander
 import rospy
@@ -21,9 +21,9 @@ import rospkg
 from geometry_msgs.msg import Pose, PoseStamped, Point, Quaternion
 from moveit_commander.conversions import pose_to_list
 from raiv_libraries.robotUR import RobotUR
-from ai_manager.Environment import Environment
-from ai_manager.Environment import Env_cam_bas
-from ai_manager.ImageController import ImageController
+# from ai_manager.Environment import Environment
+# from ai_manager.Environment import Env_cam_bas
+#from ai_manager.ImageController import ImageController
 from std_msgs.msg import Bool, Int32MultiArray
 
 
@@ -33,8 +33,8 @@ from std_msgs.msg import Bool, Int32MultiArray
 
 # Création d'un objet de la classe PerspectiveCalibration
 
-dPoint = PerspectiveCalibration()
-dPoint.setup_camera()
+#dPoint = PerspectiveCalibration()
+#dPoint.setup_camera()
 
 Pub3 = rospy.Publisher("pixel_coordinates", Int32MultiArray, queue_size=10)
 
@@ -93,9 +93,9 @@ class MainWindow(QWidget):
         ])
         self.image_controller = ImageController(image_topic='/usb_cam/image_raw')
         self.inference_model = None
-        self.robot = RobotUR()
-        self._move_robot()
-        self._load_model()
+        #self.robot = RobotUR()
+        #self._move_robot()
+        #self._load_model()
 
     @torch.no_grad()
     def evaluate_image(self, image):
