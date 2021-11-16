@@ -24,15 +24,15 @@ class NodeBestPrediction:
 
     How to run?
     * roslaunch usb_cam usb_cam-test.launch   (to provide a /usb_cam/image_raw topic)
-    * rosrun raiv_research visu_prediction.py   (to view the success/fail prediction points on the image)
-    * rosrun raiv_research best_prediction.py   (to provide a /predictions and /new_image topics)
+    * rosrun raiv_research node_visu_prediction.py   (to view the success/fail prediction points on the image)
+    * rosrun raiv_research node_best_prediction.py   (to provide a /predictions and /new_image topics)
     * rosservice call /best_prediction_service  (to get the current best prediction. It loads a new image and invalidates the points in the picking zone)
 
     """
     def __init__(self):
         self.predictions = []
         msg_list_pred = ListOfPredictions()
-        rospy.init_node('best_prediction')
+        rospy.init_node('node_best_prediction')
         rospy.Service('best_prediction_service', GetBestPrediction, self._get_best_prediction)
         pub = rospy.Publisher('predictions', ListOfPredictions, queue_size=10)
         self.pub_image = rospy.Publisher('new_image', Image, queue_size=10)

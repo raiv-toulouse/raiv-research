@@ -6,7 +6,6 @@ from PyQt5.QtGui import *
 from PyQt5.QtCore import Qt
 from PyQt5.uic import loadUi
 import rospy
-import os
 from raiv_research.msg import ListOfPredictions
 from sensor_msgs.msg import Image
 
@@ -19,10 +18,8 @@ class NodeVisuPrediction(QWidget):
     """
     def __init__(self):
         super().__init__()
-        self_dir = os.path.dirname(os.path.realpath(__file__))  # Folder of this file
-        ui_file = os.path.join(self_dir, "visu_prediction.ui")  # the UI file is in the same folder
-        loadUi(ui_file, self)
-        rospy.init_node('visu_prediction')
+        loadUi("node_visu_prediction.ui", self)
+        rospy.init_node('node_visu_prediction')
         rospy.Subscriber("predictions", ListOfPredictions, self._update_predictions)
         rospy.Subscriber('new_image', Image, self._change_image)
         self.prediction_threshold = rospy.get_param('~prediction_threshold') # threshold for success grasping prediction
@@ -30,18 +27,18 @@ class NodeVisuPrediction(QWidget):
         self.image = None
 
     def _change_image(self, req):
-        """ Retrive the new webcam image"""
+        """ When a new webcam image arrive, store it in self.image """
         format = QImage.Format_RGB888
         image = QImage(req.data, req.width, req.height, format)
         self.image = image
 
     def _update_predictions(self,data):
-        """ Retrive the new list of predictions and draw them"""
+        """ When a new list of predictions arrive, draw them """
         self.predictions = data.predictions
         self.repaint()
 
     def paintEvent(self, event):
-        """ Display the last webcam image and draw predictions (green points if prediction > THRESHOLD otherwise red)"""
+        """ Display the last webcam image and draw predictions (green points if prediction > THRESHOLD otherwise red) """
         qp = QPainter(self)
         rect = event.rect()
         if self.image:
