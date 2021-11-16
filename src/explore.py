@@ -68,7 +68,7 @@ class ExploreWindow(QWidget):
         self.image_controller = SimpleImageController(image_topic='/usb_cam/image_raw')
         self.image_model = None
         self.inference_model = None
-        #self.robot = RobotUR()
+        self.robot = RobotUR()
         self.move_robot()
         self.load_model()
 
