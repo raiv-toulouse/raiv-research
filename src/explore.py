@@ -4,7 +4,6 @@ from PyQt5.QtWidgets import *
 from PyQt5 import uic
 from torchvision.transforms.functional import crop
 from torchvision import transforms
-from PIL import Image as image
 import os
 import time
 import torch
@@ -12,42 +11,24 @@ import torchvision
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib
-from BlobDetector.camera_calibration.PerspectiveCalibration import PerspectiveCalibration
 import rospy
-from geometry_msgs.msg import Pose, PoseStamped, Point, Quaternion
 from raiv_libraries.robotUR import RobotUR
-from ai_manager.ImageController import ImageController
-from std_msgs.msg import Bool, Int32MultiArray
-from raiv_libraries.CNN import CNN
+from raiv_libraries.robot_with_vaccum_gripper import Robot_with_vaccum_gripper
+from raiv_libraries.simple_image_controller import SimpleImageController
+from raiv_libraries.image_model import ImageModel
+from raiv_camera_calibration.perspective_calibration import PerspectiveCalibration
+import geometry_msgs.msg as geometry_msgs
+
 
 # global variables
-#image_path = './Image_point/2021-05-07-143556.jpg'
-#image_coordinates = []
+WIDTH = HEIGHT = 56 # Size of cropped image
+Z_PICK_ROBOT = 0.15 # Z coord before going down to pick
 
-# Création d'un objet de la classe PerspectiveCalibration
-
-dPoint = PerspectiveCalibration()
-dPoint.setup_camera()
-
-
-Pub3 = rospy.Publisher("pixel_coordinates", Int32MultiArray, queue_size=10)
-
-rospy.init_node('explore')
-rate = rospy.Rate(0.5)
-
-
+### Used for DEBUG purpose
 matplotlib.use('Qt5Agg')
 
-WIDTH = HEIGHT = 56 # Size of cropped image
-
-image_controller = ImageController(image_topic='/usb_cam2/image_raw')
-
-mtx = np.load('/home/student1/catkin_ws_noetic/src/bin_picking/ai_manager/src/BlobDetector/camera_calibration/camera_data/' + 'newcam_mtx.npy')
-dist = np.load('/home/student1/catkin_ws_noetic/src/bin_picking/ai_manager/src/BlobDetector/camera_calibration/camera_data/' + 'dist.npy')
-new_camera_mtx = np.load('/home/student1/catkin_ws_noetic/src/bin_picking/ai_manager/src/BlobDetector/camera_calibration/camera_data/' + 'new_camera_mtx.npy')
-
 def imshow(images, title=None, pil_image = False):
-    """Imshow for Tensor. Used for DEBUG purpose"""
+    """Imshow for Tensor. """
     if pil_image:
         inp = images
     else:
@@ -62,176 +43,108 @@ def imshow(images, title=None, pil_image = False):
         plt.title(title)
     plt.pause(2)
 
-class MainWindow(QWidget):
+
+class ExploreWindow(QWidget):
     """
     Load an image and a CNN model from a CKPT file and display the prediction for some sub-images at some specific points
     """
 
-    def __init__(self):
+    def __init__(self, calibration_folder):
         super().__init__()
-        uic.loadUi("explore_ihm.ui",self) #needs the canvas.py file in the current directory
+        uic.loadUi("explore_ihm.ui",self) #needs the canvas_explore.py file in the current directory
         self.title = 'Camera'
-        self.label = QLabel(self)
-        lay = QVBoxLayout()
-        lay.addWidget(self.label)
-        self.setLayout(lay)
-
-        self.btn_change_image.clicked.connect(self._move_robot)
-        # self.btn_pick.clicked.connect(self.predict)
-        self.btn_load_model.clicked.connect(self._load_model)
-        self.btn_find_best.clicked.connect(self._find_best_solution)
-        self.btn_map.clicked.connect(self._compute_map)
-        self.btn_find_and_pick.clicked.connect(self._find_and_pick)
-        self.sb_threshold.valueChanged.connect(self._change_threshold)
+        # event handlers
+        self.btn_load_model.clicked.connect(self.load_model)
+        self.btn_change_image.clicked.connect(self.move_robot)
+        self.sb_threshold.valueChanged.connect(self.change_threshold)
+        # attributs
         self.transform = transforms.Compose([
             transforms.Lambda(lambda img: self._crop_xy(img)),
             transforms.Resize(size=256),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ])
-        self.image_controller = ImageController(image_topic='/usb_cam/image_raw')
-        self.model = CNN(backbone='resnet18')
+        self.dPoint = PerspectiveCalibration(calibration_folder)
+        self.image_controller = SimpleImageController(image_topic='/usb_cam/image_raw')
+        self.image_model = None
         self.inference_model = None
-        self.robot = RobotUR()
-        self._move_robot()
-        self._load_model()
+        #self.robot = RobotUR()
+        self.move_robot()
+        self.load_model()
 
-
-    @torch.no_grad()
-    def evaluate_image(self, image):
-        features, prediction = self.inference_model(image)
-        return features.detach().numpy(), prediction.detach()
-
-    # @pyqtSlot(QImage)
-    # def setImage(self, image):
-    #     self.label.setPixmap(QPixmap.fromImage(image))
-    #     self.th.writer.write(image)
-
-    def _load_model(self):
+    def load_model(self):
         """ Load a new model """
-        fname = QFileDialog.getOpenFileName(self, 'Open model file', '.', "Model files (*.ckpt)", options=QFileDialog.DontUseNativeDialog)
+        fname = QFileDialog.getOpenFileName(self, 'Open CKPT model file', '.', "Model files (*.ckpt)", options=QFileDialog.DontUseNativeDialog)
         if fname[0]:
-            #model_name = self.image_model._find_name_of_best_model()
-            model_name = os.path.basename(fname[0])
-            self.inference_model = self.model.load_from_checkpoint(fname[0])
-            self.lbl_model_name.setText(model_name)
+            ckpt_model_name = os.path.basename(fname[0])  # Only the name, without path
+            self.image_model = ImageModel(model_name='resnet18', ckpt_dir=os.path.dirname(fname[0]))
+            self.inference_model = self.image_model.load_ckpt_model_file(ckpt_model_name)  # Load the selected models
+            self.lbl_model_name.setText(ckpt_model_name)
 
-    def _move_robot(self):
-        self.move_robot_to_take_pic()
-        img, width, height = image_controller.get_image()
-        # préparation de la variable de sauvegarde (nom du fichier, dossier de sauvegarde...)
-        image_path = '{}/img{}.png'.format("{}".format('./'),"update")  # FIFO queue
-        img.save(image_path)
-        path = r'/home/student1/catkin_ws_noetic/src/bin_picking/ai_manager/src/ImageProcessing/updating_image/imgupdate.png'
-        # chargement de la photo avec OpenCV
-        frame = cv2.imread(path)
-        dst = cv2.undistort(frame, mtx, dist, None, new_camera_mtx)
-        # sauvegarde de la photo
-        cv2.imwrite(
-            os.path.join('/home/student1/catkin_ws_noetic/src/bin_picking/ai_manager/src/ImageProcessing/updating_image',
-                         "imgupdate.png"), dst)
-        fname = "imgupdate.png"
-        self._set_image(fname)
-        msg = True
-
-    def _change_image(self):
-        img, width, height = image_controller.get_image()
-        # préparation de la variable de sauvegarde (nom du fichier, dossier de sauvegarde...)
-        image_path = '{}/updating_image/img{}.png'.format("{}".format('./'), "update")  # FIFO queue
-        img.save(image_path)
-        path = r'/home/student1/catkin_ws_noetic/src/bin_picking/ai_manager/src/ImageProcessing/updating_image/imgupdate.png'
-        # chargement de la photo avec OpenCV
-        frame = cv2.imread(path)
-        # Method 1 to undistort the image
-        dst = cv2.undistort(frame, mtx, dist, None, new_camera_mtx)
-        # sauvegarde de la photo
-        cv2.imwrite(os.path.join('/home/student1/catkin_ws_noetic/src/bin_picking/ai_manager/src/ImageProcessing/updating_image',
-                                 "imgupdate.png"), dst)
-        fname = "imgupdate.png"
-        self._set_image(fname)
-
-
-    def move_robot_to_take_pic(self):
-
-        # création d'une position initiale
-        # coordonées de la position de décalage (pour que le robot de soit pas sur la prochaine photo)
-        self.init_x = -30.312 / 100
-        self.init_y = 27.68 / 100
-        self.init_z = 0.3
-
-        # calcul du déplacement à effectuer pour passer du point courant au point de décalage
-        self.move_init_x = self.init_x - robot2.robot_commander.get_current_pose().pose.position.x
-        self.move_init_y = self.init_y - robot2.robot_commander.get_current_pose().pose.position.y
-        self.move_init_z = self.init_z - robot2.robot_commander.get_current_pose().pose.position.z
-
-        # mouvement vers le point de décalage
-        robot2.relative_move(self.move_init_x, self.move_init_y, self.move_init_z)
-
-        self.pose_init = Pose()
-        self.pose_init.position.x = robot2.robot_commander.get_current_pose().pose.position.x
-        self.pose_init.position.y = robot2.robot_commander.get_current_pose().pose.position.y
-        self.pose_init.position.z = 0.3
-        self.pose_init.orientation.x = -0.4952562586434166
-        self.pose_init.orientation.y = 0.49864161678730506
-        self.pose_init.orientation.z = 0.5082803126324129
-        self.pose_init.orientation.w = 0.497723718615624
-        myRobot.go_to_pose_goal(self.pose_init)
-
-    def _set_image(self, filename):
-        self.canvas.set_image(filename)
-        self.image = image.open(filename)
-
-
-    def _crop_xy(self, image):
-        """ Crop image at position (predict_center_x,predict_center_y) and with size (WIDTH,HEIGHT) """
-        return crop(image, self.predict_center_y - HEIGHT/2, self.predict_center_x - WIDTH/2, HEIGHT, WIDTH)  # top, left, height, width
+    def move_robot(self):
+        """  Move robot out of camera scope then get and display a new image """
+        # self.robot.go_to_initial_position()
+        self._set_image()
 
     def predict(self, x, y):
         """ Predict probability and class for a cropped image at (x,y) """
         self.predict_center_x = x
         self.predict_center_y = y
         img = self.transform(self.image)  # Get the cropped transformed image
-        # imshow(img)
+        # imshow(img)  # For DEBUG
         img = img.unsqueeze(0)  # To have a 4-dim tensor ([nb_of_images, channels, w, h])
-        features, preds = self.image_model.evaluate_image(img, self.inference_model, False)  # No processing
-        #self.lbl_result.setText(str(torch.exp(preds)))
+        features, preds = self.image_model.evaluate_image(img, False)  # No processing
         return torch.exp(preds)
 
-    def _change_threshold(self):
-        ''' Redraw the predictions if the threshold has been changed '''
-        self.canvas.repaint()
-
-    def _find_best_solution(self):
-        """ Compute the best prediction and ask the canvas to draw it """
-        all_preds = self._compute_all_preds()  # [ [x, y, tensor([[prob_fail, proba_success]])], ...]
-        all_preds.sort(key=lambda pred: pred[2][0][1].item(), reverse=True)
-        self.canvas.all_preds = [all_preds[0]]
-        self.canvas.repaint()
-        return  self.canvas.all_preds
-
-    def _compute_map(self):
-        """ Compute a list of predictions and ask the canvas to draw them"""
-        all_preds = self._compute_all_preds()
+    def compute_map(self, start_coord, end_coord):
+        """ Compute a list of predictions and ask the canvas to draw them
+            Called from CanvasExplore """
+        all_preds = self._compute_all_preds(start_coord, end_coord)
         self.canvas.all_preds = all_preds
         self.canvas.repaint()
 
-    def _compute_all_preds(self):
+    def ask_robot_to_pick(self, px, py):
+        xyz = self.dPoint.from_2d_to_3d([px, py])
+        print("Pixel coord = {:.0f}, {:.0f}".format(px, py))
+        print("XYZ = {:.2f}, {:.2f}, {:.2f}".format(xyz[0][0], xyz[1][0], xyz[2][0]))
+        x = xyz[0][0] / 100
+        y = xyz[1][0] / 100
+        pose_for_pick = geometry_msgs.Pose(
+            geometry_msgs.Vector3(x, y, Z_PICK_ROBOT), RobotUR.tool_down_pose
+        )
+        self.robot.pick(pose_for_pick)
+
+    def change_threshold(self):
+        ''' Redraw the predictions if the threshold has been changed '''
+        self.canvas.repaint()
+
+    ############ Private methods ################
+
+    @torch.no_grad()
+    def _evaluate_image(self, image):
+        features, prediction = self.inference_model(image)
+        return features.detach().numpy(), prediction.detach()
+
+    def _set_image(self):
+        """ Get an image from topic and display it on the canvas """
+        img, width, height = self.image_controller.get_image()
+        self.canvas.set_image(img)
+        self.image = img
+
+    def _crop_xy(self, image):
+        """ Crop image at position (predict_center_x,predict_center_y) and with size (WIDTH,HEIGHT) """
+        return crop(image, self.predict_center_y - HEIGHT/2, self.predict_center_x - WIDTH/2, HEIGHT, WIDTH)  # top, left, height, width
+
+    def _compute_all_preds(self, start_coord, end_coord):
         """ Compute a list of predictions like :
         [ [x, y, tensor([[prob_fail, proba_success]])], ...] with x,y the center of cropped image size (WIDTH,HEIGHT)
         """
         start = time.time()
         all_preds = []
         steps = int(self.edt_nb_pixels_per_step.text())
-        (im_width, im_height) = self.image.size
-        half_width = int(WIDTH/2)
-        half_height = int(HEIGHT/2)
         count = 0
-        start_width = int(0.3*im_width+half_width)
-        end_width = int(im_width -(half_width+0.2*im_width))
-        start_height = int(0.25*im_height+half_height)
-        end_height = int(im_height - (half_height + 0.25*im_height))
-        for x in range(start_width, end_width, steps):
-            for y in range(start_height, end_height, steps):
+        for x in range(start_coord.x(), end_coord.x(), steps):
+            for y in range(start_coord.y(), end_coord.y(), steps):
                 preds = self.predict(x,y)
                 all_preds.append([x, y, preds])
                 count += 1
@@ -239,51 +152,23 @@ class MainWindow(QWidget):
         self.lbl_result_map.setText(f'{count} inferences in {end-start:.1f} s')
         return all_preds
 
-    def _find_and_pick(self):
-        """Compute a list of predictions like _compute_all_preds, sort them like _find_best_solution
-        Transform pixel to real coordinates
-        Command robot"""
 
-        for i in range (1,11):
-            list = []
-            all_preds = self._compute_all_preds()
-
-            all_preds.sort(key=lambda pred: pred[2][0][1].item(), reverse=True)
-            print(len(all_preds))
-            self.canvas.all_preds = [all_preds[0]]
-            self.canvas.repaint()
-
-            image_coord = [all_preds[0][0], all_preds[0][1]]
-            print(image_coord)
-
-            xyz = dPoint.from_2d_to_3d(image_coord)
-
-            goal_x = -(xyz[0][0] / 100 - 0 / 100)
-            goal_y = -(xyz[1][0] / 100 - 0 / 100)
-
-            # calcul du déplacement à effectuer pour passer du point courant au point cible
-            move_x = goal_x - robot2.robot_commander.get_current_pose().pose.position.x
-            move_y = goal_y - robot2.robot_commander.get_current_pose().pose.position.y
-
-            # mouvement vers le point cible
-            robot2.relative_move(move_x, move_y, 0)
-
-            object_gripped = robot2.take_pick(no_rotation=True)
-
-            self.move_robot_to_take_pic()
-
-            robot2.send_gripper_message(False)
-
-            self._move_robot()
-
-
+# First, run the communication between the robot and ROS :
+# roslaunch raiv_libraries ur3_bringup_cartesian.launch robot_ip:=10.31.56.102 kinematics_config:=${HOME}/Calibration/ur3_calibration.yaml
+# rosrun usb_cam usb_cam_node _image_width:=1280 _image_height:=960 >/dev/null 2>&1
+# Then, run this node :
+# python explore.py <camera_calibration_folder>
 
 if __name__ == '__main__':
+    import argparse
 
+    parser = argparse.ArgumentParser(description='Test a CKPT file model and perform robot pick action.')
+    parser.add_argument('calibration_folder', type=str, help='calibration files folder')
+    args = parser.parse_args()
 
+    rospy.init_node('explore')
+    rate = rospy.Rate(0.5)
     app = QApplication(sys.argv)
-    gui = MainWindow()
-
+    gui = ExploreWindow(args.calibration_folder)
     gui.show()
-
     sys.exit(app.exec_())

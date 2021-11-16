@@ -15,7 +15,7 @@
   </property>
   <layout class="QHBoxLayout" name="horizontalLayout">
    <item>
-    <widget class="Canvas" name="canvas" native="true">
+    <widget class="CanvasExplore" name="canvas" native="true">
      <property name="minimumSize">
       <size>
        <width>1280</width>
@@ -43,49 +43,7 @@
      <item>
       <widget class="QPushButton" name="btn_change_image">
        <property name="text">
-        <string>Change image</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QLabel" name="lbl_image_name">
-       <property name="text">
-        <string/>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QPushButton" name="btn_pick">
-       <property name="text">
-        <string>Perform pick action</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QLabel" name="lbl_result">
-       <property name="text">
-        <string/>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QPushButton" name="btn_find_best">
-       <property name="text">
-        <string>Find best solution</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QLabel" name="lbl_find_best">
-       <property name="text">
-        <string/>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QPushButton" name="btn_map">
-       <property name="text">
-        <string>Map</string>
+        <string>Move robot then change image</string>
        </property>
       </widget>
      </item>
@@ -108,13 +66,6 @@
       </layout>
      </item>
      <item>
-      <widget class="QLabel" name="lbl_result_map">
-       <property name="text">
-        <string/>
-       </property>
-      </widget>
-     </item>
-     <item>
       <layout class="QHBoxLayout" name="horizontalLayout_3">
        <item>
         <widget class="QLabel" name="label_2">
@@ -133,16 +84,9 @@
       </layout>
      </item>
      <item>
-      <widget class="QPushButton" name="btn_find_and_pick">
+      <widget class="QLabel" name="lbl_result_map">
        <property name="text">
-        <string>find and pick</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QPushButton" name="btn_webcam">
-       <property name="text">
-        <string>webcam</string>
+        <string/>
        </property>
       </widget>
      </item>
@@ -165,9 +109,9 @@
  </widget>
  <customwidgets>
   <customwidget>
-   <class>Canvas</class>
+   <class>CanvasExplore</class>
    <extends>QWidget</extends>
-   <header>canvas.h</header>
+   <header>canvas_explore.h</header>
    <container>1</container>
   </customwidget>
  </customwidgets>
