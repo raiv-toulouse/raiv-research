@@ -1,5 +1,4 @@
 import sys
-import cv2
 from PyQt5.QtWidgets import *
 from PyQt5 import uic
 from torchvision.transforms.functional import crop
@@ -68,7 +67,7 @@ class ExploreWindow(QWidget):
         self.image_controller = SimpleImageController(image_topic='/usb_cam/image_raw')
         self.image_model = None
         self.inference_model = None
-        self.robot = RobotUR()
+        self.robot = Robot_with_vaccum_gripper()
         self.move_robot()
         self.load_model()
 
