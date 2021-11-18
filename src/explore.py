@@ -53,9 +53,10 @@ class ExploreWindow(QWidget):
         uic.loadUi("explore_ihm.ui",self) #needs the canvas_explore.py file in the current directory
         self.title = 'Camera'
         # event handlers
-        self.btn_load_model.clicked.connect(self.load_model)
-        self.btn_change_image.clicked.connect(self.move_robot)
-        self.sb_threshold.valueChanged.connect(self.change_threshold)
+        self.btn_load_model.clicked.connect(self._load_model)
+        self.btn_change_image.clicked.connect(self._move_robot)
+        self.btn_activate_robot.clicked.connect(self._activate_robot)
+        self.sb_threshold.valueChanged.connect(self._change_threshold)
         # attributs
         self.transform = transforms.Compose([
             transforms.Lambda(lambda img: self._crop_xy(img)),
@@ -67,23 +68,9 @@ class ExploreWindow(QWidget):
         self.image_controller = SimpleImageController(image_topic='/usb_cam/image_raw')
         self.image_model = None
         self.inference_model = None
-        self.robot = Robot_with_vaccum_gripper()
-        self.move_robot()
-        self.load_model()
-
-    def load_model(self):
-        """ Load a new model """
-        fname = QFileDialog.getOpenFileName(self, 'Open CKPT model file', '.', "Model files (*.ckpt)", options=QFileDialog.DontUseNativeDialog)
-        if fname[0]:
-            ckpt_model_name = os.path.basename(fname[0])  # Only the name, without path
-            self.image_model = ImageModel(model_name='resnet18', ckpt_dir=os.path.dirname(fname[0]))
-            self.inference_model = self.image_model.load_ckpt_model_file(ckpt_model_name)  # Load the selected models
-            self.lbl_model_name.setText(ckpt_model_name)
-
-    def move_robot(self):
-        """  Move robot out of camera scope then get and display a new image """
-        # self.robot.go_to_initial_position()
+        self.robot = None
         self._set_image()
+        self._load_model()
 
     def predict(self, x, y):
         """ Predict probability and class for a cropped image at (x,y) """
@@ -103,21 +90,43 @@ class ExploreWindow(QWidget):
         self.canvas.repaint()
 
     def ask_robot_to_pick(self, px, py):
-        xyz = self.dPoint.from_2d_to_3d([px, py])
-        print("Pixel coord = {:.0f}, {:.0f}".format(px, py))
-        print("XYZ = {:.2f}, {:.2f}, {:.2f}".format(xyz[0][0], xyz[1][0], xyz[2][0]))
-        x = xyz[0][0] / 100
-        y = xyz[1][0] / 100
-        pose_for_pick = geometry_msgs.Pose(
-            geometry_msgs.Vector3(x, y, Z_PICK_ROBOT), RobotUR.tool_down_pose
-        )
-        self.robot.pick(pose_for_pick)
+        if self.robot:
+            xyz = self.dPoint.from_2d_to_3d([px, py])
+            print("Pixel coord = {:.0f}, {:.0f}".format(px, py))
+            print("XYZ = {:.2f}, {:.2f}, {:.2f}".format(xyz[0][0], xyz[1][0], xyz[2][0]))
+            x = xyz[0][0] / 100
+            y = xyz[1][0] / 100
+            pose_for_pick = geometry_msgs.Pose(
+                geometry_msgs.Vector3(x, y, Z_PICK_ROBOT), RobotUR.tool_down_pose
+            )
+            self.robot.pick(pose_for_pick)
 
-    def change_threshold(self):
+    ############ Private methods ################
+
+    # Event handler
+
+    def _change_threshold(self):
         ''' Redraw the predictions if the threshold has been changed '''
         self.canvas.repaint()
 
-    ############ Private methods ################
+    def _load_model(self):
+        """ Load a new model """
+        fname = QFileDialog.getOpenFileName(self, 'Open CKPT model file', '.', "Model files (*.ckpt)", options=QFileDialog.DontUseNativeDialog)
+        if fname[0]:
+            ckpt_model_name = os.path.basename(fname[0])  # Only the name, without path
+            self.image_model = ImageModel(model_name='resnet18', ckpt_dir=os.path.dirname(fname[0]))
+            self.inference_model = self.image_model.load_ckpt_model_file(ckpt_model_name)  # Load the selected models
+            self.lbl_model_name.setText(ckpt_model_name)
+
+    def _activate_robot(self):
+        """ """
+        self.robot = Robot_with_vaccum_gripper()
+        self.btn_change_image.setEnabled(True)
+
+    def _move_robot(self):
+        """  Move robot out of camera scope then get and display a new image """
+        self.robot.go_to_initial_position()
+        self._set_image()
 
     @torch.no_grad()
     def _evaluate_image(self, image):

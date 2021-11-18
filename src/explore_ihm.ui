@@ -41,7 +41,17 @@
       </widget>
      </item>
      <item>
+      <widget class="QPushButton" name="btn_activate_robot">
+       <property name="text">
+        <string>Activate robot</string>
+       </property>
+      </widget>
+     </item>
+     <item>
       <widget class="QPushButton" name="btn_change_image">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
        <property name="text">
         <string>Move robot then change image</string>
        </property>
