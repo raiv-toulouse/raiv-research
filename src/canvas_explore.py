@@ -131,7 +131,8 @@ class CanvasExplore(QWidget):
             qp.setPen(Qt.black)
             qp.setFont(QFont('Decorative', 14))
             qp.drawText(x, y, text)
-            if cl.item() == 1:  # Success
+            threshold = self.parent.sb_threshold.value()
+            if prob > threshold:  # Success
                 qp.setPen(QPen(Qt.green, 1, Qt.DashLine))
             else:  # Fail
                 qp.setPen(QPen(Qt.red, 1, Qt.DashLine))
@@ -157,7 +158,7 @@ class CanvasExplore(QWidget):
             qp.drawText(x, y, text)
 
     def _compute_prob_and_class(self, pred):
-        """ Retrive class (success or fail) and its associeted percentage from pred """
+        """ Retrieve class (success or fail) and its associated percentage from pred """
         prob, cl = torch.max(pred, 1)
         if cl.item() == 0:  # Fail
             prob = 100 * (1 - prob.item())
