@@ -37,7 +37,7 @@ X_OUT = 0.0  # XYZ coord where the robot is out of camera scope
 Y_OUT = -0.3
 Z_OUT = 0.1
 PLACE_POSE = geometry_msgs.Pose(
-            geometry_msgs.Vector3(0.2, 0.3, Z_PICK_PLACE), RobotUR.tool_down_pose   MODIFIER LE X ET LE Y POUR LA ZONE DE DEPOT DE L'OBJET
+            geometry_msgs.Vector3(0.2, 0.3, Z_PICK_PLACE), RobotUR.tool_down_pose   TODO : MODIFIER LE X ET LE Y POUR LA ZONE DE DEPOT DE L'OBJET
         )
 
 class CreateImageDataset(QWidget):
@@ -57,7 +57,7 @@ class CreateImageDataset(QWidget):
         self.calibration_folder = None
         self.image_folder = None
         # Load a first image
-        self.image_controller = SimpleImageController(image_topic='/usb_cam/image_raw') A REMPLACER PAR UN TOPIC PERMETTANT LA RECUPERATION DES 2 IMAGES RGB et DEPTH
+        self.image_controller = SimpleImageController(image_topic='/usb_cam/image_raw') TODO : A REMPLACER PAR UN TOPIC PERMETTANT LA RECUPERATION DES 2 IMAGES RGB et DEPTH
         self._set_image()
 
     #
@@ -120,7 +120,7 @@ class CreateImageDataset(QWidget):
     #
     def _set_image(self):
         """ Get an image from topic and display it on the canvas """
-        rgb, width, height = self.image_controller.get_image()  A REMPLACER PAR LA RECUPERATION DES 2 IMAGES RGB et DEPTH
+        rgb, width, height = self.image_controller.get_image()  TODO : A REMPLACER PAR LA RECUPERATION DES 2 IMAGES RGB et DEPTH
         self.canvas.set_image(rgb)
         self.rgb = rgb
         self.depth =
