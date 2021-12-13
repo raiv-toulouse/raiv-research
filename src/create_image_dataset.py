@@ -2,7 +2,8 @@
 # coding: utf-8
 
 """
-Used to get picking images from random position. The images go to 'success/<rgb and depth>' or 'fail/<rgb and depth>' folders, depending if the gripper succeed or not
+Used to get picking images from selected positions. The images go to 'success/<rgb and depth>' or 'fail/<rgb and depth>' folders,
+depending if the gripper succeed or not.
 
 - We need to establish a connection to the robot with the following command:
 roslaunch raiv_libraries ur3_bringup_cartesian.launch robot_ip:=10.31.56.102 kinematics_config:=${HOME}/Calibration/ur3_calibration.yaml
@@ -11,7 +12,7 @@ roslaunch raiv_libraries ur3_bringup_cartesian.launch robot_ip:=10.31.56.102 kin
 rosrun rosserial_arduino serial_node.py _port:=/dev/ttyACM0
 
 - launch program:
-python random_pick_birdview.py <images_folder> <calibration_files_folder>
+python create_image_dataset.py
 
 """
 import rospy
@@ -35,9 +36,9 @@ CROP_HEIGHT = 25
 Z_PICK_PLACE = 0.1  # Z coord to start pick or place movement
 X_OUT = 0.0  # XYZ coord where the robot is out of camera scope
 Y_OUT = -0.3
-Z_OUT = 0.1
+Z_OUT = 0.12
 PLACE_POSE = geometry_msgs.Pose(
-            geometry_msgs.Vector3(0.2, 0.3, Z_PICK_PLACE), RobotUR.tool_down_pose   MODIFIER LE X ET LE Y POUR LA ZONE DE DEPOT DE L'OBJET
+            geometry_msgs.Vector3(0.2, 0.3, Z_PICK_PLACE), RobotUR.tool_down_pose  #TODO : MODIFIER LE X ET LE Y POUR LA ZONE DE DEPOT DE L'OBJET
         )
 
 class CreateImageDataset(QWidget):
@@ -47,7 +48,7 @@ class CreateImageDataset(QWidget):
 
     def __init__(self):
         super().__init__()
-        uic.loadUi("create_image_dataset.ui",self) #needs the canvas_cerate_image_dataset.py file in the current directory
+        uic.loadUi("create_image_dataset.ui",self) #needs the canvas_create_image_dataset.py file in the current directory
         # Event handlers
         self.btn_calibration_folder.clicked.connect(self._select_calibration_folder)
         self.btn_image_folder.clicked.connect(self._select_image_folder)
@@ -57,7 +58,7 @@ class CreateImageDataset(QWidget):
         self.calibration_folder = None
         self.image_folder = None
         # Load a first image
-        self.image_controller = SimpleImageController(image_topic='/usb_cam/image_raw') A REMPLACER PAR UN TOPIC PERMETTANT LA RECUPERATION DES 2 IMAGES RGB et DEPTH
+        self.image_controller = SimpleImageController(image_topic='/usb_cam/image_raw') #TODO : A REMPLACER PAR UN TOPIC PERMETTANT LA RECUPERATION DES 2 IMAGES RGB et DEPTH
         self._set_image()
 
     #
@@ -120,7 +121,7 @@ class CreateImageDataset(QWidget):
     #
     def _set_image(self):
         """ Get an image from topic and display it on the canvas """
-        rgb, width, height = self.image_controller.get_image()  A REMPLACER PAR LA RECUPERATION DES 2 IMAGES RGB et DEPTH
+        rgb, width, height = self.image_controller.get_image()  #TODO : A REMPLACER PAR LA RECUPERATION DES 2 IMAGES RGB et DEPTH
         self.canvas.set_image(rgb)
         self.rgb = rgb
         self.depth =
@@ -151,34 +152,3 @@ if __name__ == '__main__':
     gui = CreateImageDataset()
     gui.show()
     sys.exit(app.exec_())
-
-
-
-
-
-
-# Main loop to get image
-while True:
-    # Move robot to pick position
-    pick_pose = pixel_to_pose(resp.xpick, resp.ypick)
-    object_gripped = robot.pick(pick_pose)
-    # If an object is gripped
-    if object_gripped:
-        # Place the object
-        print('Gripped')
-        place_pose = pixel_to_pose(resp.xplace, resp.yplace)
-        print()
-        robot.place(place_pose)
-        save_images('success', resp.rgb, resp.depth)  # Save images in success folders
-    else:
-        robot._send_gripper_message(False)  # Switch off the gripper
-        save_images('fail', resp.rgb, resp.depth)  # Save images in fail folders
-    # The robot must go out of the camera field
-    robot.go_to_xyz_position(X_OUT, Y_OUT, Z_OUT)
-    #cv2.destroyAllWindows()
-
-
-
-
-
-
