@@ -14,7 +14,9 @@ rosrun rosserial_arduino serial_node.py _port:=/dev/ttyACM0
 python random_pick_birdview.py <images_folder> <calibration_files_folder>
 
 """
+import numpy as np
 import rospy
+import math
 from datetime import datetime
 from pathlib import Path
 import sys
@@ -25,21 +27,37 @@ from raiv_libraries.robot_with_vaccum_gripper import Robot_with_vaccum_gripper
 from raiv_libraries.srv import get_coordservice, get_coordserviceResponse
 from raiv_libraries.robotUR import RobotUR
 import geometry_msgs.msg as geometry_msgs
+from sensor_msgs.msg import Image
 
 #
 # Constants
 #
-CROP_WIDTH = 25 # Width and height for rgb and depth cropped images
-CROP_HEIGHT = 25
-Z_PICK_PLACE = 0.1  # Z coord to start pick or place movement
+
+CROP_WIDTH = 30 # Width and height for rgb and depth cropped images
+CROP_HEIGHT = 30
+Z_PICK_PLACE = 0.12  # Z coord to start pick or place movement
 X_OUT = 0.0  # XYZ coord where the robot is out of camera scope
 Y_OUT = -0.3
-Z_OUT = 0.1
+Z_OUT = 0.12
 bridge = CvBridge()
+
+def histeq(image, bins = 255):
+    image_histogram, bins = np.histogram(image.flatten(), bins, density=True)
+    cdf = image_histogram.cumsum() # cumulative distribution function
+    cdf = cdf / cdf[-1] # normalize
+
+    # use linear interpolation of cdf to find new pixel values
+    image_equalized = np.interp(image.flatten(), bins[:-1], cdf)
+
+    return image_equalized.reshape(image.shape), cdf
 
 def pixel_to_pose(px, py):
     """ Transpose pixel coord to XYZ coord (in the base robot frame) and return the corresponding frame """
     xyz = dPoint.from_2d_to_3d([px, py])
+
+    while xyz == [['a'],['b'],['c']]:
+        resp = coord_service('random', CROP_WIDTH, CROP_HEIGHT)
+        print('Asking for a new couple of coordonates due to false value. IN RANDOM PICK BIRDVIEW')
     x = xyz[0][0] / 100
     y = xyz[1][0] / 100
     return geometry_msgs.Pose(
@@ -47,11 +65,10 @@ def pixel_to_pose(px, py):
     )
 
 def save_images(folder, rgb, depth):
-    image_name = str(datetime.now()) + '.jpg'
+    image_name = str(datetime.now()) + '.png'
     for image_type, image in zip(['rgb', 'depth'], [resp.rgb, resp.depth]):
         image_path = (parent_image_folder / folder / image_type / image_name).resolve()
         cv2.imwrite(str(image_path), image)
-
 #
 # Main program
 #
@@ -75,7 +92,7 @@ robot.go_to_xyz_position(X_OUT, Y_OUT, Z_OUT) # Go out of camera scope
 coord_service_name = 'In_box_coordService'
 rospy.wait_for_service(coord_service_name)
 coord_service = rospy.ServiceProxy(coord_service_name, get_coordservice)
-_ = coord_service('refresh', CROP_WIDTH, CROP_HEIGHT) # ask to refresh (i.e get a new image and find boxes)
+_ = coord_service('refresh', CROP_WIDTH, CROP_HEIGHT, 0,0) # ask to refresh (i.e get a new image and find boxes)
 
 # Create, if they don't exist, <images_folder>/success/rgb, <images_folder>/success/depth,  <images_folder>/fail/rgb and <images_folder>/fail/depth folders
 parent_image_folder = Path(sys.argv[1])
@@ -89,17 +106,45 @@ dPoint = PerspectiveCalibration(calibration_folder)
 
 # Main loop to get image
 while True:
+
     # Get all information from the camera
-    resp = coord_service('random', CROP_WIDTH, CROP_HEIGHT)
+    resp = coord_service('random', CROP_WIDTH, CROP_HEIGHT, 0, 0)
+    print(resp)
+
     # For debug
+    distance = rospy.wait_for_message('/Distance_Here', Image)
+    distance = bridge.imgmsg_to_cv2(distance, desired_encoding = 'passthrough')
+
+    # coord_correction(resp.hist_max, resp.xpick, resp.ypick, distance)
 
     resp.rgb = bridge.imgmsg_to_cv2(resp.rgb, desired_encoding = 'passthrough')
     resp.depth = bridge.imgmsg_to_cv2(resp.depth, desired_encoding = 'passthrough')
-    resp.depth = resp.depth * 100
+    resp.depth = resp.depth.astype(np.uint16)
+
+    resp.depth = histeq(resp.depth)[0]
+    resp.depth = resp.depth*255
+    cv2.imwrite('/home/student1/Desktop/rgb.png', resp.rgb)
+    cv2.imwrite('/home/student1/Desktop/depth.png', resp.depth)
+    print(resp.depth)
+    depth2 = histeq(resp.depth)[0]
+
+    rgb256 = cv2.resize(resp.rgb, (256,256))
+    depth256 = cv2.resize(resp.depth, (256,256))
+    depthhist256 = cv2.resize(depth2, (256,256))
+    depthhist256_hist = histeq(depthhist256)[0]
 
     cv2.imshow("rgb", resp.rgb)
+    cv2.imshow("DepthHist", depth2)
     cv2.imshow("depth", resp.depth)
+    cv2.imshow("rgb256", rgb256)
+    cv2.imshow("depth256", depth256)
+
+    cv2.imshow("depthhist256", depthhist256)
+    cv2.imshow("depthhist256_hist", depthhist256_hist)
     cv2.waitKey(1000)
+
+    print(resp.xplace, 'Xplace')
+    print(resp.yplace, 'Yplace')
 
     # Move robot to pick position
     pick_pose = pixel_to_pose(resp.xpick, resp.ypick)
@@ -107,20 +152,13 @@ while True:
     # If an object is gripped
     if object_gripped:
         # Place the object
-        print('Gripped')
         place_pose = pixel_to_pose(resp.xplace, resp.yplace)
-        print()
         robot.place(place_pose)
-        save_images('success', resp.rgb, resp.depth)  # Save images in success folders
+        save_images('success', rgb256, depth256)# Save images in success folders
+        robot.go_to_xyz_position(0.3, 0, 0.12, duration=2)#Intermediate position to avoid collision with the shoulder
     else:
         robot._send_gripper_message(False)  # Switch off the gripper
-        save_images('fail', resp.rgb, resp.depth)  # Save images in fail folders
+        save_images('fail', rgb256, depth256)# Save images in fail folders
+        robot.go_to_xyz_position(0.3, 0, 0.12, duration=2)#Intermediate position to avoid collision with the shoulder
     # The robot must go out of the camera field
-    robot.go_to_xyz_position(X_OUT, Y_OUT, Z_OUT)
-    #cv2.destroyAllWindows()
-
-
-
-
-
-
+    robot.go_to_xyz_position(X_OUT, Y_OUT, Z_OUT, duration = 2)
