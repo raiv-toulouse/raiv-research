@@ -33,15 +33,15 @@ from sensor_msgs.msg import Image
 # Constants
 #
 
-CROP_WIDTH = 30 # Width and height for rgb and depth cropped images
-CROP_HEIGHT = 30
+CROP_WIDTH = 50 # Width and height for rgb and depth cropped images
+CROP_HEIGHT = 50
 Z_PICK_PLACE = 0.12  # Z coord to start pick or place movement
 X_OUT = 0.0  # XYZ coord where the robot is out of camera scope
 Y_OUT = -0.3
 Z_OUT = 0.12
 bridge = CvBridge()
 
-def histeq(image, bins = 255):
+def normalize(image, bins = 255):
     image_histogram, bins = np.histogram(image.flatten(), bins, density=True)
     cdf = image_histogram.cumsum() # cumulative distribution function
     cdf = cdf / cdf[-1] # normalize
@@ -121,26 +121,17 @@ while True:
     resp.depth = bridge.imgmsg_to_cv2(resp.depth, desired_encoding = 'passthrough')
     resp.depth = resp.depth.astype(np.uint16)
 
-    resp.depth = histeq(resp.depth)[0]
+    resp.depth = normalize(resp.depth)[0]
     resp.depth = resp.depth*255
     cv2.imwrite('/home/student1/Desktop/rgb.png', resp.rgb)
     cv2.imwrite('/home/student1/Desktop/depth.png', resp.depth)
-    print(resp.depth)
-    depth2 = histeq(resp.depth)[0]
 
     rgb256 = cv2.resize(resp.rgb, (256,256))
     depth256 = cv2.resize(resp.depth, (256,256))
-    depthhist256 = cv2.resize(depth2, (256,256))
-    depthhist256_hist = histeq(depthhist256)[0]
 
-    cv2.imshow("rgb", resp.rgb)
-    cv2.imshow("DepthHist", depth2)
-    cv2.imshow("depth", resp.depth)
     cv2.imshow("rgb256", rgb256)
     cv2.imshow("depth256", depth256)
 
-    cv2.imshow("depthhist256", depthhist256)
-    cv2.imshow("depthhist256_hist", depthhist256_hist)
     cv2.waitKey(1000)
 
     print(resp.xplace, 'Xplace')
