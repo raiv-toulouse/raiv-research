@@ -20,8 +20,11 @@ import geometry_msgs.msg as geometry_msgs
 
 
 # global variables
-WIDTH = HEIGHT = 56 # Size of cropped image
+WIDTH = HEIGHT = 100 # Size of cropped image
 Z_PICK_ROBOT = 0.15 # Z coord before going down to pick
+X_OUT = 0.0  # XYZ coord where the robot is out of camera scope
+Y_OUT = -0.3
+Z_OUT = 0.12
 
 ### Used for DEBUG purpose
 matplotlib.use('Qt5Agg')
@@ -65,7 +68,7 @@ class ExploreWindow(QWidget):
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ])
         self.dPoint = PerspectiveCalibration(calibration_folder)
-        self.image_controller = SimpleImageController(image_topic='/usb_cam/image_raw')
+        self.image_controller = SimpleImageController(image_topic='/RGBClean')
         self.image_model = None
         self.inference_model = None
         self.robot = None
@@ -93,7 +96,7 @@ class ExploreWindow(QWidget):
         if self.robot:
             xyz = self.dPoint.from_2d_to_3d([px, py])
             print("Pixel coord = {:.0f}, {:.0f}".format(px, py))
-            print("XYZ = {:.2f}, {:.2f}, {:.2f}".format(xyz[0][0], xyz[1][0], xyz[2][0]))
+            # print("XYZ = {:.2f}, {:.2f}, {:.2f}".format(xyz[0][0], xyz[1][0], xyz[2][0]))
             x = xyz[0][0] / 100
             y = xyz[1][0] / 100
             pose_for_pick = geometry_msgs.Pose(
@@ -125,7 +128,7 @@ class ExploreWindow(QWidget):
 
     def _move_robot(self):
         """  Move robot out of camera scope then get and display a new image """
-        self.robot.go_to_initial_position()
+        self.robot.go_to_xyz_position(X_OUT, Y_OUT, Z_OUT)
         self._set_image()
 
     @torch.no_grad()
