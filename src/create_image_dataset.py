@@ -2,7 +2,8 @@
 # coding: utf-8
 
 """
-Used to get picking images from random position. The images go to 'success/<rgb and depth>' or 'fail/<rgb and depth>' folders, depending if the gripper succeed or not
+Used to get picking images from selected positions. The images go to 'success/<rgb and depth>' or 'fail/<rgb and depth>' folders,
+depending if the gripper succeed or not.
 
 - We need to establish a connection to the robot with the following command:
 roslaunch raiv_libraries ur3_bringup_cartesian.launch robot_ip:=10.31.56.102 kinematics_config:=${HOME}/Calibration/ur3_calibration.yaml
@@ -11,9 +12,10 @@ roslaunch raiv_libraries ur3_bringup_cartesian.launch robot_ip:=10.31.56.102 kin
 rosrun rosserial_arduino serial_node.py _port:=/dev/ttyACM0
 
 - launch program:
-python random_pick_birdview.py <images_folder> <calibration_files_folder>
+python create_image_dataset.py
 
 """
+import numpy as np
 import rospy
 from datetime import datetime
 from pathlib import Path
@@ -22,10 +24,14 @@ import cv2
 from raiv_camera_calibration.perspective_calibration import PerspectiveCalibration
 from raiv_libraries.robot_with_vaccum_gripper import Robot_with_vaccum_gripper
 from raiv_libraries.simple_image_controller import SimpleImageController
+from raiv_libraries.srv import get_coordservice, get_coordserviceResponse
 from raiv_libraries.robotUR import RobotUR
+from sensor_msgs.msg import Image
+from cv_bridge import CvBridge
 import geometry_msgs.msg as geometry_msgs
 from PyQt5.QtWidgets import *
 from PyQt5 import uic
+import os
 
 #
 # Constants
@@ -35,9 +41,9 @@ CROP_HEIGHT = 25
 Z_PICK_PLACE = 0.1  # Z coord to start pick or place movement
 X_OUT = 0.0  # XYZ coord where the robot is out of camera scope
 Y_OUT = -0.3
-Z_OUT = 0.1
+Z_OUT = 0.12
 PLACE_POSE = geometry_msgs.Pose(
-            geometry_msgs.Vector3(0.2, 0.3, Z_PICK_PLACE), RobotUR.tool_down_pose   TODO : MODIFIER LE X ET LE Y POUR LA ZONE DE DEPOT DE L'OBJET
+            geometry_msgs.Vector3(0.323, 0.1, Z_PICK_PLACE), RobotUR.tool_down_pose
         )
 
 class CreateImageDataset(QWidget):
@@ -47,7 +53,7 @@ class CreateImageDataset(QWidget):
 
     def __init__(self):
         super().__init__()
-        uic.loadUi("create_image_dataset.ui",self) #needs the canvas_cerate_image_dataset.py file in the current directory
+        uic.loadUi("/home/student1/catkin_ws_noetic/src/raiv_research/src/create_image_dataset.ui",self) #needs the canvas_create_image_dataset.py file in the current directory
         # Event handlers
         self.btn_calibration_folder.clicked.connect(self._select_calibration_folder)
         self.btn_image_folder.clicked.connect(self._select_image_folder)
@@ -56,9 +62,19 @@ class CreateImageDataset(QWidget):
         self.robot = None
         self.calibration_folder = None
         self.image_folder = None
+
+        coord_service_name = 'In_box_coordService'
+        rospy.wait_for_service(coord_service_name)
+        self.coord_service = rospy.ServiceProxy(coord_service_name, get_coordservice)
+
         # Load a first image
-        self.image_controller = SimpleImageController(image_topic='/usb_cam/image_raw') TODO : A REMPLACER PAR UN TOPIC PERMETTANT LA RECUPERATION DES 2 IMAGES RGB et DEPTH
-        self._set_image()
+
+        bridge = CvBridge()
+        self.image_controller = rospy.wait_for_message('/RGBClean', Image)
+        # self.image_controller = bridge.imgmsg_to_cv2(self.image_controller, desired_encoding = 'passthrough')
+        print(self.image_controller)
+        print('Printing image from RGBClean done')
+        self.canvas.set_image(self.image_controller)
 
     #
     # Event handlers
@@ -83,21 +99,27 @@ class CreateImageDataset(QWidget):
 
     def _launch_robot(self):
         # Create, if they don't exist, <images_folder>/success/rgb, <images_folder>/success/depth,  <images_folder>/fail/rgb and <images_folder>/fail/depth folders
-        parent_image_folder = Path(sys.argv[1])
+        print(sys.argv)
+        print(Path(sys.argv[0]))
+        print(self.image_folder)
+        self.parent_image_folder = Path(self.image_folder)
         for sf_folder in ['success', 'fail']:
             for rd_folder in ['rgb', 'depth']:
-                folder = parent_image_folder / sf_folder / rd_folder
+                folder = self.parent_image_folder / sf_folder / rd_folder
                 Path.mkdir(folder, parents=True, exist_ok=True)
         self.robot = Robot_with_vaccum_gripper()
         self.robot.go_to_xyz_position(X_OUT, Y_OUT, Z_OUT) # Send robot out of camera scope
         # A PerspectiveCalibration object to perform 2D => 3D conversion
         self.dPoint = PerspectiveCalibration(self.calibration_folder)
+        self.canvas.set_image(rospy.wait_for_message('/RGBClean', Image))
+
 
     #
     # Public method
     #
     def process_click(self, px, py):
         """ send the robot to this (px, py) position and store the image file in the good folder (success or fail) """
+        self._set_image(px,py)
         # Move robot to pick position
         pick_pose = self._pixel_to_pose(px, py)
         object_gripped = self.robot.pick(pick_pose)
@@ -106,40 +128,61 @@ class CreateImageDataset(QWidget):
             # Place the object
             print('Gripped')
             self.robot.place(PLACE_POSE)
-            self._save_images('success', self.rgb, self.depth)  # Save images in success folders
+            self._save_images('success')  # Save images in success folders
         else:
             self.robot._send_gripper_message(False)  # Switch off the gripper
-            self._save_images('fail', self.rgb, self.depth)  # Save images in fail folders
+            self._save_images('fail')  # Save images in fail folders
         # The robot must go out of the camera field
         self.robot.go_to_xyz_position(X_OUT, Y_OUT, Z_OUT)
         # Get a new image
-        self._set_image()
+        self._set_image(px,py)
 
     #
     # Private methods
     #
-    def _set_image(self):
-        """ Get an image from topic and display it on the canvas """
-        rgb, width, height = self.image_controller.get_image()  TODO : A REMPLACER PAR LA RECUPERATION DES 2 IMAGES RGB et DEPTH
-        self.canvas.set_image(rgb)
-        self.rgb = rgb
-        self.depth =
+    def _set_image(self, px, py):
+        bridge = CvBridge()
+        """ Get an image from service and display it on the canvas """
+        resp = self.coord_service('fixed', CROP_WIDTH, CROP_HEIGHT, px, py)
+        self.rgb = resp.rgb
+        self.depth = resp.depth
+        self.canvas.set_image(rospy.wait_for_message('/RGBClean', Image))
+        self.depth = bridge.imgmsg_to_cv2(self.depth, desired_encoding='passthrough')
+        self._histeq()
 
     def _pixel_to_pose(self, px, py):
         """ Transpose pixel coord to XYZ coord (in the base robot frame) and return the corresponding frame """
         xyz = self.dPoint.from_2d_to_3d([px, py])
+        print('xyz :', xyz)
         x = xyz[0][0] / 100
         y = xyz[1][0] / 100
         return geometry_msgs.Pose(
             geometry_msgs.Vector3(x, y, Z_PICK_PLACE), RobotUR.tool_down_pose
         )
 
-    def _save_images(self, folder, rgb, depth):
-        image_name = str(datetime.now()) + '.jpg'
-        for image_type, image in zip(['rgb', 'depth'], [rgb, depth]):
-            image_path = (self.parent_image_folder / folder / image_type / image_name).resolve()
-            cv2.imwrite(str(image_path), image)
+    def _save_images(self, folder):
+        image_name = str(datetime.now()) + '.png'
 
+        bridge = CvBridge()
+        for image_type, image in zip(['rgb', 'depth'], [self.rgb, self.depth]):
+            image_path = (self.parent_image_folder / folder / image_type).resolve()
+            os.chdir(image_path)
+            print(image_type)
+            image = bridge.imgmsg_to_cv2(image, desired_encoding = 'passthrough')
+            cv2.imwrite(image_name, image)
+
+    #Funciton used to normalize the image
+    def _histeq(self,bins=255):
+        bridge = CvBridge()
+        image_histogram, bins = np.histogram(self.depth.flatten(), bins, density=True)
+        cdf = image_histogram.cumsum()  # cumulative distribution function
+        cdf = cdf / cdf[-1]  # normalize
+
+        # use linear interpolation of cdf to find new pixel values
+        image_equalized = np.interp(self.depth.flatten(), bins[:-1], cdf)
+        image_equalized = image_equalized.reshape(self.depth.shape)
+        self.depth = image_equalized*255
+        self.depth = bridge.cv2_to_imgmsg(self.depth, encoding = 'passthrough')
 
 #
 # Main program
@@ -151,34 +194,3 @@ if __name__ == '__main__':
     gui = CreateImageDataset()
     gui.show()
     sys.exit(app.exec_())
-
-
-
-
-
-
-# Main loop to get image
-while True:
-    # Move robot to pick position
-    pick_pose = pixel_to_pose(resp.xpick, resp.ypick)
-    object_gripped = robot.pick(pick_pose)
-    # If an object is gripped
-    if object_gripped:
-        # Place the object
-        print('Gripped')
-        place_pose = pixel_to_pose(resp.xplace, resp.yplace)
-        print()
-        robot.place(place_pose)
-        save_images('success', resp.rgb, resp.depth)  # Save images in success folders
-    else:
-        robot._send_gripper_message(False)  # Switch off the gripper
-        save_images('fail', resp.rgb, resp.depth)  # Save images in fail folders
-    # The robot must go out of the camera field
-    robot.go_to_xyz_position(X_OUT, Y_OUT, Z_OUT)
-    #cv2.destroyAllWindows()
-
-
-
-
-
-
