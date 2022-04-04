@@ -34,12 +34,14 @@ from sensor_msgs.msg import Image
 
 CROP_WIDTH = 50  # Width and height for rgb and depth cropped images
 CROP_HEIGHT = 50
-Z_PICK_PLACE = 0.12  # Z coord to start pick or place movement (in meter)
+Z_PICK_PLACE = 0.1  # Z coord to start pick or place movement (in meter)
+X_INT = 0.3  # XYZ coord where the robot is on intermediaire position (in meter)
+Y_INT = 0.0
+Z_INT = 0.12
 X_OUT = 0.0  # XYZ coord where the robot is out of camera scope (in meter)
 Y_OUT = -0.3
 Z_OUT = 0.12
 bridge = CvBridge()
-
 
 def normalize(image, bins=255):
     image_histogram, bins = np.histogram(image.flatten(), bins, density=True)
@@ -55,6 +57,10 @@ def normalize(image, bins=255):
 def pixel_to_pose(px, py):
     """ Transpose pixel coord to XYZ coord (in the base robot frame) and return the corresponding frame """
     xyz = dPoint.from_2d_to_3d([px, py])
+
+    print('coordonnée u', px)
+    print('coordonnée v', py)
+    print('coordonnée robot', xyz)
 
     while xyz == [['a'], ['b'], ['c']]:
         resp = coord_service('random', CROP_WIDTH, CROP_HEIGHT)
@@ -89,6 +95,7 @@ if not calibration_folder.exists():
 # Create, if they don't exist, <images_folder>/success/rgb, <images_folder>/success/depth,
 # <images_folder>/fail/rgb and <images_folder>/fail/depth folders
 parent_image_folder = Path(sys.argv[1])
+
 for sf_folder in ['success', 'fail']:
     for rd_folder in ['rgb', 'depth']:
         folder = parent_image_folder / sf_folder / rd_folder
@@ -127,8 +134,8 @@ while True:
     resp.depth = resp.depth * 255
 
     # For debug
-    cv2.imwrite('/home/student1/Desktop/rgb.png', resp.rgb)
-    cv2.imwrite('/home/student1/Desktop/depth.png', resp.depth)
+    # cv2.imwrite('/home/student1/Desktop/rgb.png', resp.rgb)
+    # cv2.imwrite('/home/student1/Desktop/depth.png', resp.depth)
 
     rgb256 = cv2.resize(resp.rgb, (256, 256))
     depth256 = cv2.resize(resp.depth, (256, 256))
@@ -148,10 +155,11 @@ while True:
         # Place the object
         place_pose = pixel_to_pose(resp.xplace, resp.yplace)
         robot.place(place_pose)
-        save_images('success', rgb256, depth256)  # Save images in success folders
+        save_images('success', rgb256, depth256)               # Save images in success folders
+        robot.go_to_xyz_position(X_INT, Y_INT, Z_INT, duration=2)  # Intermediate position to avoid collision with the shoulder
     else:
-        robot.release_gripper()  # Switch off the gripper
-        save_images('fail', rgb256, depth256)  # Save images in fail folders
-    robot.go_to_xyz_position(0.3, 0, 0.12, duration=2)  # Intermediate position to avoid collision with the shoulder
-    # The robot must go out of the camera field
-    robot.go_to_xyz_position(X_OUT, Y_OUT, Z_OUT, duration=2)
+        robot.release_gripper()                                # Switch off the gripper
+        save_images('fail', rgb256, depth256)       # Save images in fail folders
+        robot.go_to_xyz_position(X_INT, Y_INT, Z_INT, duration=2)  # Intermediate position to avoid collision with the shoulder
+
+    robot.go_to_xyz_position(X_OUT, Y_OUT, Z_OUT, duration=2)  # The robot must go out of the camera field
