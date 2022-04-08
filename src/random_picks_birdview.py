@@ -34,12 +34,12 @@ from sensor_msgs.msg import Image
 
 CROP_WIDTH = 50  # Width and height for rgb and depth cropped images
 CROP_HEIGHT = 50
-Z_PICK_PLACE = 0.1  # Z coord to start pick or place movement (in meter)
+Z_PICK_PLACE = 0.12  # Z coord to start pick or place movement (in meter)
 X_INT = 0.3  # XYZ coord where the robot is on intermediaire position (in meter)
 Y_INT = 0.0
 Z_INT = 0.12
-X_OUT = 0.0  # XYZ coord where the robot is out of camera scope (in meter)
-Y_OUT = -0.3
+X_OUT = 0.21  # XYZ coord where the robot is out of camera scope (in meter)
+Y_OUT = -0.27
 Z_OUT = 0.12
 bridge = CvBridge()
 
@@ -58,9 +58,6 @@ def pixel_to_pose(px, py):
     """ Transpose pixel coord to XYZ coord (in the base robot frame) and return the corresponding frame """
     xyz = dPoint.from_2d_to_3d([px, py])
 
-    print('coordonnée u', px)
-    print('coordonnée v', py)
-    print('coordonnée robot', xyz)
 
     while xyz == [['a'], ['b'], ['c']]:
         resp = coord_service('random', CROP_WIDTH, CROP_HEIGHT)
@@ -119,7 +116,7 @@ while True:
 
     # Get all information from the camera
     resp = coord_service('random', CROP_WIDTH, CROP_HEIGHT, None, None)
-    print(resp)
+
 
     # For debug
     distance = rospy.wait_for_message('/Distance_Here', Image)
