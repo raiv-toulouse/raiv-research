@@ -53,7 +53,7 @@ class CreateImageDataset(QWidget):
 
     def __init__(self):
         super().__init__()
-        uic.loadUi("/home/student1/catkin_ws_noetic/src/raiv_research/src/create_image_dataset.ui",self) #needs the canvas_create_image_dataset.py file in the current directory
+        uic.loadUi("create_image_dataset.ui",self) #needs the canvas_create_image_dataset.py file in the current directory
         # Event handlers
         self.btn_calibration_folder.clicked.connect(self._select_calibration_folder)
         self.btn_image_folder.clicked.connect(self._select_image_folder)
