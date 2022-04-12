@@ -117,7 +117,6 @@ while True:
     # Get all information from the camera
     resp = coord_service('random', CROP_WIDTH, CROP_HEIGHT, None, None)
 
-
     # For debug
     distance = rospy.wait_for_message('/Distance_Here', Image)
     distance = bridge.imgmsg_to_cv2(distance, desired_encoding='passthrough')
