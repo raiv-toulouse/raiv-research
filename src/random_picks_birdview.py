@@ -24,6 +24,7 @@ import cv2
 from raiv_camera_calibration.perspective_calibration import PerspectiveCalibration
 from raiv_libraries.robot_with_vaccum_gripper import Robot_with_vaccum_gripper
 from raiv_libraries.srv import get_coordservice
+from raiv_libraries.get_coord_node import InBoxCoord
 from raiv_libraries.robotUR import RobotUR
 import geometry_msgs.msg as geometry_msgs
 from sensor_msgs.msg import Image
@@ -54,14 +55,7 @@ def normalize(image, bins=255):
     return image_equalized.reshape(image.shape), cdf
 
 
-def pixel_to_pose(px, py):
-    """ Transpose pixel coord to XYZ coord (in the base robot frame) and return the corresponding frame """
-    x, y, z = dPoint.from_2d_to_3d([px, py])
-
-    # while xyz == [['a'], ['b'], ['c']]:
-    #     resp = coord_service('random', CROP_WIDTH, CROP_HEIGHT)
-    #     print('Asking for a new couple of coordinates due to false value. IN RANDOM PICK BIRDVIEW')
-
+def xyz_to_pose(x, y, z):
     return geometry_msgs.Pose(geometry_msgs.Vector3(x, y, Z_PICK_PLACE), RobotUR.tool_down_pose)
 
 
@@ -113,7 +107,7 @@ dPoint = PerspectiveCalibration(calibration_folder)
 while True:
 
     # Get all information from the camera
-    resp = coord_service('random', CROP_WIDTH, CROP_HEIGHT, None, None)
+    resp = coord_service('random', InBoxCoord.PICK, InBoxCoord.ON_OBJECT, CROP_WIDTH, CROP_HEIGHT, None, None)
 
     # For debug
     distance = rospy.wait_for_message('/Distance_Here', Image)
@@ -121,18 +115,18 @@ while True:
 
     # coord_correction(resp.hist_max, resp.xpick, resp.ypick, distance)
 
-    resp.rgb = bridge.imgmsg_to_cv2(resp.rgb, desired_encoding='passthrough')
-    resp.depth = bridge.imgmsg_to_cv2(resp.depth, desired_encoding='passthrough')
-    resp.depth = resp.depth.astype(np.uint16)
-    resp.depth = normalize(resp.depth)[0]
-    resp.depth = resp.depth * 255
+    rgb_crop = bridge.imgmsg_to_cv2(resp.rgb_crop, desired_encoding='passthrough')
+    depth_crop = bridge.imgmsg_to_cv2(resp.depth_crop, desired_encoding='passthrough')
+    depth_crop = depth_crop.astype(np.uint16)
+    depth_crop = normalize(depth_crop)[0]
+    depth_crop = depth_crop * 255
 
     # For debug
     # cv2.imwrite('/home/student1/Desktop/rgb.png', resp.rgb)
-    # cv2.imwrite('/home/student1/Desktop/depth.png', resp.depth)
+    # cv2.imwrite('/home/student1/Desktop/depth.png', depth_crop)
 
     rgb256 = cv2.resize(resp.rgb, (256, 256))
-    depth256 = cv2.resize(resp.depth, (256, 256))
+    depth256 = cv2.resize(depth_crop, (256, 256))
 
     # For debug
     cv2.imshow("rgb256", rgb256)
@@ -142,12 +136,13 @@ while True:
     print(resp.yplace, 'Yplace')
 
     # Move robot to pick position
-    pick_pose = pixel_to_pose(resp.xpick, resp.ypick)
+    pick_pose = xyz_to_pose(resp.x, resp.y, resp.z)
     object_gripped = robot.pick(pick_pose)
     # If an object is gripped
     if object_gripped:
         # Place the object
-        place_pose = pixel_to_pose(resp.xplace, resp.yplace)
+        resp = coord_service('random', InBoxCoord.PLACE, InBoxCoord.IN_THE_BOX, CROP_WIDTH, CROP_HEIGHT, None, None)
+        place_pose = xyz_to_pose(resp.x_pixel, resp.y_pixel)
         robot.place(place_pose)
         save_images('success', rgb256, depth256)               # Save images in success folders
         robot.go_to_xyz_position(X_INT, Y_INT, Z_INT, duration=2)  # Intermediate position to avoid collision with the shoulder
