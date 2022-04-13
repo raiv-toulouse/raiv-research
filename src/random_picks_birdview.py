@@ -54,16 +54,14 @@ def normalize(image, bins=255):
     return image_equalized.reshape(image.shape), cdf
 
 
-def pixel_to_pose(px, py):
+def pixel_to_pose(px, py, depth_image):
     """ Transpose pixel coord to XYZ coord (in the base robot frame) and return the corresponding frame """
-    xyz = dPoint.from_2d_to_3d([px, py])
+    x, y, z = dPoint.from_2d_to_3d([px, py], depth_image)
 
+    # while xyz == [['a'], ['b'], ['c']]:
+    #     resp = coord_service('random', CROP_WIDTH, CROP_HEIGHT)
+    #     print('Asking for a new couple of coordinates due to false value. IN RANDOM PICK BIRDVIEW')
 
-    while xyz == [['a'], ['b'], ['c']]:
-        resp = coord_service('random', CROP_WIDTH, CROP_HEIGHT)
-        print('Asking for a new couple of coordinates due to false value. IN RANDOM PICK BIRDVIEW')
-    x = xyz[0][0] / 100
-    y = xyz[1][0] / 100
     return geometry_msgs.Pose(geometry_msgs.Vector3(x, y, Z_PICK_PLACE), RobotUR.tool_down_pose)
 
 
@@ -118,10 +116,10 @@ while True:
     resp = coord_service('random', CROP_WIDTH, CROP_HEIGHT, None, None)
 
     # For debug
-    distance = rospy.wait_for_message('/Distance_Here', Image)
-    distance = bridge.imgmsg_to_cv2(distance, desired_encoding='passthrough')
+    depth_image = rospy.wait_for_message('/Distance_Here', Image)
+    depth_image = bridge.imgmsg_to_cv2(depth_image, desired_encoding='passthrough')
 
-    # coord_correction(resp.hist_max, resp.xpick, resp.ypick, distance)
+    # coord_correction(resp.hist_max, resp.xpick, resp.ypick, depth_image)
 
     resp.rgb = bridge.imgmsg_to_cv2(resp.rgb, desired_encoding='passthrough')
     resp.depth = bridge.imgmsg_to_cv2(resp.depth, desired_encoding='passthrough')
@@ -144,12 +142,12 @@ while True:
     print(resp.yplace, 'Yplace')
 
     # Move robot to pick position
-    pick_pose = pixel_to_pose(resp.xpick, resp.ypick)
+    pick_pose = pixel_to_pose(resp.xpick, resp.ypick, depth_image)
     object_gripped = robot.pick(pick_pose)
     # If an object is gripped
     if object_gripped:
         # Place the object
-        place_pose = pixel_to_pose(resp.xplace, resp.yplace)
+        place_pose = pixel_to_pose(resp.xplace, resp.yplace, depth_image)
         robot.place(place_pose)
         save_images('success', rgb256, depth256)               # Save images in success folders
         robot.go_to_xyz_position(X_INT, Y_INT, Z_INT, duration=2)  # Intermediate position to avoid collision with the shoulder
