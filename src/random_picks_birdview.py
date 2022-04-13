@@ -56,14 +56,12 @@ def normalize(image, bins=255):
 
 def pixel_to_pose(px, py):
     """ Transpose pixel coord to XYZ coord (in the base robot frame) and return the corresponding frame """
-    xyz = dPoint.from_2d_to_3d([px, py])
+    x, y, z = dPoint.from_2d_to_3d([px, py])
 
+    # while xyz == [['a'], ['b'], ['c']]:
+    #     resp = coord_service('random', CROP_WIDTH, CROP_HEIGHT)
+    #     print('Asking for a new couple of coordinates due to false value. IN RANDOM PICK BIRDVIEW')
 
-    while xyz == [['a'], ['b'], ['c']]:
-        resp = coord_service('random', CROP_WIDTH, CROP_HEIGHT)
-        print('Asking for a new couple of coordinates due to false value. IN RANDOM PICK BIRDVIEW')
-    x = xyz[0][0] / 100
-    y = xyz[1][0] / 100
     return geometry_msgs.Pose(geometry_msgs.Vector3(x, y, Z_PICK_PLACE), RobotUR.tool_down_pose)
 
 
