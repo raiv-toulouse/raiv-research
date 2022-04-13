@@ -152,10 +152,8 @@ class CreateImageDataset(QWidget):
 
     def _pixel_to_pose(self, px, py):
         """ Transpose pixel coord to XYZ coord (in the base robot frame) and return the corresponding frame """
-        xyz = self.dPoint.from_2d_to_3d([px, py])
-        print('xyz :', xyz)
-        x = xyz[0][0] / 100
-        y = xyz[1][0] / 100
+        x, y, z = self.dPoint.from_2d_to_3d([px, py])
+        print('xyz :', x, y, z)
         return geometry_msgs.Pose(
             geometry_msgs.Vector3(x, y, Z_PICK_PLACE), RobotUR.tool_down_pose
         )
