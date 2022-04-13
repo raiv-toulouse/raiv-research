@@ -41,12 +41,9 @@ if __name__=="__main__":
 
     while True:
         coord_pixel = get_best_prediction_coord() # Pixel coord of best prediction
-        xyz = dPoint.from_2d_to_3d(coord_pixel)
-        # Compute the XY goal point in robot frame
-        goal_x = -xyz[0][0] / 100
-        goal_y = -xyz[1][0] / 100
+        x, y, z = dPoint.from_2d_to_3d(coord_pixel)
         pose_for_pick = geometry_msgs.Pose(
-            geometry_msgs.Vector3(goal_x, goal_y, Z_PICK_ROBOT), RobotUR.tool_down_pose
+            geometry_msgs.Vector3(x, y, Z_PICK_ROBOT), RobotUR.tool_down_pose
         )
         robot.pick(pose_for_pick)
         # The robot must go out of the camera field

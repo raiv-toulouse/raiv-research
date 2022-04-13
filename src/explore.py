@@ -94,11 +94,8 @@ class ExploreWindow(QWidget):
 
     def ask_robot_to_pick(self, px, py):
         if self.robot:
-            xyz = self.dPoint.from_2d_to_3d([px, py])
+            x, y, z = self.dPoint.from_2d_to_3d([px, py])
             print("Pixel coord = {:.0f}, {:.0f}".format(px, py))
-            # print("XYZ = {:.2f}, {:.2f}, {:.2f}".format(xyz[0][0], xyz[1][0], xyz[2][0]))
-            x = xyz[0][0] / 100
-            y = xyz[1][0] / 100
             pose_for_pick = geometry_msgs.Pose(
                 geometry_msgs.Vector3(x, y, Z_PICK_ROBOT), RobotUR.tool_down_pose
             )
