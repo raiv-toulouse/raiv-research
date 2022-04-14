@@ -131,7 +131,7 @@ while True:
     cv2.waitKey(1000)
 
     # Move robot to pick position
-    pick_pose = xyz_to_pose(resp_pick.x_robot, resp_pick.y_robot, resp_pick.z_robot)
+    pick_pose = xyz_to_pose(resp_pick.x_robot, resp_pick.y_robot, Z_PICK_PLACE)
     object_gripped = robot.pick(pick_pose)
     # If an object is gripped
     if object_gripped:
