@@ -56,7 +56,7 @@ def normalize(image, bins=255):
 
 
 def xyz_to_pose(x, y, z):
-    return geometry_msgs.Pose(geometry_msgs.Vector3(x, y, Z_PICK_PLACE), RobotUR.tool_down_pose)
+    return geometry_msgs.Pose(geometry_msgs.Vector3(x, y, z), RobotUR.tool_down_pose)
 
 
 def save_images(folder, rgb, depth):
@@ -138,7 +138,7 @@ while True:
         # Place the object
         print(resp_place.x_pixel, 'Xplace')
         print(resp_place.y_pixel, 'Yplace')
-        place_pose = xyz_to_pose(resp_place.x_robot, resp_place.y_robot, resp_place.z_robot)
+        place_pose = xyz_to_pose(resp_place.x_robot, resp_place.y_robot, Z_PICK_PLACE)
         robot.place(place_pose)
         save_images('success', rgb256, depth256)               # Save images in success folders
         robot.go_to_xyz_position(X_INT, Y_INT, Z_INT, duration=2)  # Intermediate position to avoid collision with the shoulder
