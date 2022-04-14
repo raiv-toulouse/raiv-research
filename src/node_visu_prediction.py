@@ -27,13 +27,13 @@ class NodeVisuPrediction(QWidget):
         self.image = None
 
     def _change_image(self, req):
-        """ When a new webcam image arrive, store it in self.image """
+        """ When a new webcam image arrives, store it in self.image """
         format = QImage.Format_RGB888
         image = QImage(req.data, req.width, req.height, format)
         self.image = image
 
     def _update_predictions(self,data):
-        """ When a new list of predictions arrive, draw them """
+        """ When a new list of predictions arrives, draw them """
         self.predictions = data.predictions
         self.repaint()
 
