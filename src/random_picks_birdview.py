@@ -134,7 +134,7 @@ while True:
     cv2.waitKey(1000)
 
     # Move robot to pick position
-    pick_pose = xyz_to_pose(resp.x, resp.y, resp.z)
+    pick_pose = xyz_to_pose(resp.x_robot, resp.y_robot, resp.z_robot)
     object_gripped = robot.pick(pick_pose)
     # If an object is gripped
     if object_gripped:
@@ -142,7 +142,7 @@ while True:
         resp = coord_service('random', InBoxCoord.PLACE, InBoxCoord.IN_THE_BOX, CROP_WIDTH, CROP_HEIGHT, None, None)
         print(resp.x_pixel, 'Xplace')
         print(resp.y_pixel, 'Yplace')
-        place_pose = xyz_to_pose(resp.x, resp.y, resp.z)
+        place_pose = xyz_to_pose(resp.x_robot, resp.y_robot, resp.z_robot)
         robot.place(place_pose)
         save_images('success', rgb256, depth256)               # Save images in success folders
         robot.go_to_xyz_position(X_INT, Y_INT, Z_INT, duration=2)  # Intermediate position to avoid collision with the shoulder
