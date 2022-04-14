@@ -127,10 +127,6 @@ while True:
     resp.depth = normalize(resp.depth)[0]
     resp.depth = resp.depth * 255
 
-    # For debug
-    # cv2.imwrite('/home/student1/Desktop/rgb.png', resp.rgb)
-    # cv2.imwrite('/home/student1/Desktop/depth.png', resp.depth)
-
     rgb256 = cv2.resize(resp.rgb, (256, 256))
     depth256 = cv2.resize(resp.depth, (256, 256))
 
