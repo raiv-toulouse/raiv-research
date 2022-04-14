@@ -107,23 +107,20 @@ dPoint = PerspectiveCalibration(calibration_folder)
 while True:
 
     # Get all information from the camera
-    resp = coord_service('random', InBoxCoord.PICK, InBoxCoord.ON_OBJECT, CROP_WIDTH, CROP_HEIGHT, None, None)
+    resp_pick = coord_service('random', InBoxCoord.PICK, InBoxCoord.ON_OBJECT, CROP_WIDTH, CROP_HEIGHT, None, None)
+    resp_place = coord_service('random', InBoxCoord.PLACE, InBoxCoord.IN_THE_BOX, CROP_WIDTH, CROP_HEIGHT, None, None)
 
     # For debug
     distance = rospy.wait_for_message('/Distance_Here', Image)
     distance = bridge.imgmsg_to_cv2(distance, desired_encoding='passthrough')
 
-    # coord_correction(resp.hist_max, resp.xpick, resp.ypick, distance)
 
-    rgb_crop = bridge.imgmsg_to_cv2(resp.rgb_crop, desired_encoding='passthrough')
-    depth_crop = bridge.imgmsg_to_cv2(resp.depth_crop, desired_encoding='passthrough')
+    rgb_crop = bridge.imgmsg_to_cv2(resp_pick.rgb_crop, desired_encoding='passthrough')
+    depth_crop = bridge.imgmsg_to_cv2(resp_pick.depth_crop, desired_encoding='passthrough')
     depth_crop = depth_crop.astype(np.uint16)
     depth_crop = normalize(depth_crop)[0]
     depth_crop = depth_crop * 255
 
-    # For debug
-    # cv2.imwrite('/home/student1/Desktop/rgb.png', resp.rgb)
-    # cv2.imwrite('/home/student1/Desktop/depth.png', depth_crop)
 
     rgb256 = cv2.resize(rgb_crop, (256, 256))
     depth256 = cv2.resize(depth_crop, (256, 256))
@@ -134,15 +131,14 @@ while True:
     cv2.waitKey(1000)
 
     # Move robot to pick position
-    pick_pose = xyz_to_pose(resp.x_robot, resp.y_robot, resp.z_robot)
+    pick_pose = xyz_to_pose(resp_pick.x_robot, resp_pick.y_robot, resp_pick.z_robot)
     object_gripped = robot.pick(pick_pose)
     # If an object is gripped
     if object_gripped:
         # Place the object
-        resp = coord_service('random', InBoxCoord.PLACE, InBoxCoord.IN_THE_BOX, CROP_WIDTH, CROP_HEIGHT, None, None)
-        print(resp.x_pixel, 'Xplace')
-        print(resp.y_pixel, 'Yplace')
-        place_pose = xyz_to_pose(resp.x_robot, resp.y_robot, resp.z_robot)
+        print(resp_place.x_pixel, 'Xplace')
+        print(resp_place.y_pixel, 'Yplace')
+        place_pose = xyz_to_pose(resp_place.x_robot, resp_place.y_robot, resp_place.z_robot)
         robot.place(place_pose)
         save_images('success', rgb256, depth256)               # Save images in success folders
         robot.go_to_xyz_position(X_INT, Y_INT, Z_INT, duration=2)  # Intermediate position to avoid collision with the shoulder
