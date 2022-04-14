@@ -1,30 +1,16 @@
 <?xml version="1.0"?>
 <launch>
-  <include file="$(find raiv_libraries)/launch/one_webcam.launch">
-    <arg name="image_width" value="1280"/>
-    <arg name="image_height" value="960"/>
-    <arg name="viewer_ok" value="false"/>
+  <include file="$(find realsense2_camera)/launch/rs_camera.launch">
+    <arg name="align_depth" value="true"/>
   </include>
-  <node name="best_prediction" pkg="raiv_research" type="best_prediction.py">
+  <node name="best_prediction" pkg="raiv_research" type="node_best_prediction.py">
     <param name="invalidation_radius" value="150"/>  <!-- radius to invalidate the predictions (in pixel) -->
     <param name="image_topic" value="/usb_cam/image_raw"/>
     <param name="crop_width" value="56"/>  <!-- size of cropped image -->
     <param name="crop_height" value="56"/>
-    <param name="model_name" value="~/catkin_ws_noetic/src/raiv_research/model/resnet18/Cylindresx4000.ckpt"/>
-    <!--  min and max HSV values for color thresholding for object recognition (max S and V = 255, max H = 180) -->
-    <param name="low_h" value="0"/>
-    <param name="high_h" value="180"/>
-    <param name="low_s" value="0"/>
-    <param name="high_s" value="18"/>
-    <param name="low_v" value="40"/>
-    <param name="high_v" value="230"/>
-    <!-- Position of the objects box in pixel -->
-    <param name="px_min" value="295"/>
-    <param name="px_max" value="1000"/>
-    <param name="py_min" value="260"/>
-    <param name="py_max" value="690"/>
+    <param name="model_name" value="METTRE ICI LE CHEMIN DU FICHIER CKPT"/>
   </node>
-  <node name="visu_prediction" pkg="raiv_research" type="visu_prediction.py" output="screen">
+  <node name="visu_prediction" pkg="raiv_research" type="node_visu_prediction.py" output="screen">
     <param name="prediction_threshold" value="0.5"/>
   </node>
 </launch>
