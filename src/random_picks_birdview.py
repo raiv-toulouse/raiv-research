@@ -28,13 +28,12 @@ from raiv_libraries.get_coord_node import InBoxCoord
 from raiv_libraries.robotUR import RobotUR
 import geometry_msgs.msg as geometry_msgs
 from sensor_msgs.msg import Image
+from raiv_libraries.image_tools import ImageTools
 
 #
 # Constants
 #
 
-CROP_WIDTH = 50  # Width and height for rgb and depth cropped images
-CROP_HEIGHT = 50
 Z_PICK_PLACE = 0.12  # Z coord to start pick or place movement (in meter)
 X_INT = 0.3  # XYZ coord where the robot is on intermediaire position (in meter)
 Y_INT = 0.0
@@ -107,13 +106,12 @@ dPoint = PerspectiveCalibration(calibration_folder)
 while True:
 
     # Get all information from the camera
-    resp_pick = coord_service('random', InBoxCoord.PICK, InBoxCoord.ON_OBJECT, CROP_WIDTH, CROP_HEIGHT, None, None)
-    resp_place = coord_service('random', InBoxCoord.PLACE, InBoxCoord.IN_THE_BOX, CROP_WIDTH, CROP_HEIGHT, None, None)
+    resp_pick = coord_service('random', InBoxCoord.PICK, InBoxCoord.ON_OBJECT, ImageTools.CROP_WIDTH, ImageTools.CROP_HEIGHT, None, None)
+    resp_place = coord_service('random', InBoxCoord.PLACE, InBoxCoord.IN_THE_BOX, ImageTools.CROP_WIDTH, ImageTools.CROP_HEIGHT, None, None)
 
     # For debug
     distance = rospy.wait_for_message('/Distance_Here', Image)
     distance = bridge.imgmsg_to_cv2(distance, desired_encoding='passthrough')
-
 
     rgb_crop = bridge.imgmsg_to_cv2(resp_pick.rgb_crop, desired_encoding='passthrough')
     depth_crop = bridge.imgmsg_to_cv2(resp_pick.depth_crop, desired_encoding='passthrough')
@@ -121,13 +119,9 @@ while True:
     depth_crop = normalize(depth_crop)[0]
     depth_crop = depth_crop * 255
 
-
-    rgb256 = cv2.resize(rgb_crop, (256, 256))
-    depth256 = cv2.resize(depth_crop, (256, 256))
-
     # For debug
-    cv2.imshow("rgb256", rgb256)
-    cv2.imshow("depth256", depth256)
+    cv2.imshow("rgb256", cv2.resize(rgb_crop, (256, 256)))
+    cv2.imshow("depth256", cv2.resize(depth_crop, (256, 256)))
     cv2.waitKey(1000)
 
     # Move robot to pick position
@@ -140,11 +134,11 @@ while True:
         print(resp_place.y_pixel, 'Yplace')
         place_pose = xyz_to_pose(resp_place.x_robot, resp_place.y_robot, Z_PICK_PLACE)
         robot.place(place_pose)
-        save_images('success', rgb256, depth256)               # Save images in success folders
+        save_images('success', rgb_crop, depth_crop)               # Save images in success folders
         robot.go_to_xyz_position(X_INT, Y_INT, Z_INT, duration=2)  # Intermediate position to avoid collision with the shoulder
     else:
         robot.release_gripper()                                # Switch off the gripper
-        save_images('fail', rgb256, depth256)       # Save images in fail folders
+        save_images('fail', rgb_crop, depth_crop)       # Save images in fail folders
         robot.go_to_xyz_position(X_INT, Y_INT, Z_INT, duration=2)  # Intermediate position to avoid collision with the shoulder
 
     robot.go_to_xyz_position(X_OUT, Y_OUT, Z_OUT, duration=2)  # The robot must go out of the camera field
