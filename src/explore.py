@@ -1,8 +1,6 @@
 import sys
 from PyQt5.QtWidgets import *
 from PyQt5 import uic
-from torchvision.transforms.functional import crop
-from torchvision import transforms
 import os
 import time
 import torch
@@ -17,10 +15,9 @@ from raiv_libraries.simple_image_controller import SimpleImageController
 from raiv_libraries.image_model import ImageModel
 from raiv_camera_calibration.perspective_calibration import PerspectiveCalibration
 import geometry_msgs.msg as geometry_msgs
-
+from raiv_libraries.image_tools import ImageTools
 
 # global variables
-WIDTH = HEIGHT = 100 # Size of cropped image
 Z_PICK_ROBOT = 0.15 # Z coord before going down to pick
 X_OUT = 0.0  # XYZ coord where the robot is out of camera scope
 Y_OUT = -0.3
@@ -61,12 +58,6 @@ class ExploreWindow(QWidget):
         self.btn_activate_robot.clicked.connect(self._activate_robot)
         self.sb_threshold.valueChanged.connect(self._change_threshold)
         # attributs
-        self.transform = transforms.Compose([
-            transforms.Lambda(lambda img: self._crop_xy(img)),
-            transforms.Resize(size=256),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-        ])
         self.dPoint = PerspectiveCalibration(calibration_folder)
         self.image_controller = SimpleImageController(image_topic='/RGBClean')
         self.image_model = None
@@ -79,7 +70,7 @@ class ExploreWindow(QWidget):
         """ Predict probability and class for a cropped image at (x,y) """
         self.predict_center_x = x
         self.predict_center_y = y
-        img = self.transform(self.image)  # Get the cropped transformed image
+        img = ImageTools.transform_crop_xy(self.image, x, y)  # Get the cropped transformed image
         # imshow(img)  # For DEBUG
         img = img.unsqueeze(0)  # To have a 4-dim tensor ([nb_of_images, channels, w, h])
         features, preds = self.image_model.evaluate_image(img, False)  # No processing
@@ -138,10 +129,6 @@ class ExploreWindow(QWidget):
         img, width, height = self.image_controller.get_image()
         self.canvas.set_image(img)
         self.image = img
-
-    def _crop_xy(self, image):
-        """ Crop image at position (predict_center_x,predict_center_y) and with size (WIDTH,HEIGHT) """
-        return crop(image, self.predict_center_y - HEIGHT/2, self.predict_center_x - WIDTH/2, HEIGHT, WIDTH)  # top, left, height, width
 
     def _compute_all_preds(self, start_coord, end_coord):
         """ Compute a list of predictions like :
