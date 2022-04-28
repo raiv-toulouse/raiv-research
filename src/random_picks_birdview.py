@@ -87,7 +87,7 @@ parent_image_folder = Path(sys.argv[1])
 
 for sf_folder in ['success', 'fail']:
     for rd_folder in ['rgb', 'depth']:
-        folder = parent_image_folder / sf_folder / rd_folder
+        folder = parent_image_folder / rd_folder / sf_folder
         Path.mkdir(folder, parents=True, exist_ok=True)
 
 rospy.init_node('random_picks_birdview')

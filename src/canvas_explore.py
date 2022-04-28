@@ -2,36 +2,7 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 import torch
-import sys
-from PyQt5 import uic
-from ImageProcessing.ImageModel import ImageModel
-from torchvision.transforms.functional import crop
-from torchvision import transforms
-import os
-import time
-import torchvision
-import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib
-import queue
-import datetime
-from BlobDetector.camera_calibration.PerspectiveCalibration import PerspectiveCalibration
-#########################################################################"
-import cv2
-import threading
-from geometry_msgs.msg import Pose, PoseStamped, Point, Quaternion
-from BlobDetector.camera_calibration.PerspectiveCalibration import PerspectiveCalibration
-from tf.transformations import euler_from_quaternion, quaternion_from_euler
-import moveit_commander
-import rospy
-import rospkg
-from geometry_msgs.msg import Pose, PoseStamped, Point, Quaternion
-from moveit_commander.conversions import pose_to_list
-#from robot2 import Robot
-from ai_manager.Environment import Environment
-from ai_manager.Environment import Env_cam_bas
-from ai_manager.ImageController import ImageController
-import random
+
 #from ur_icam_description.robotUR import RobotUR
 
 # WIDTH = HEIGHT = 56
