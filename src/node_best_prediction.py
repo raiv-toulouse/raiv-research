@@ -58,7 +58,7 @@ class NodeBestPrediction:
                 msg = Prediction()
                 msg.x = resp.x_pixel
                 msg.y = resp.y_pixel
-                msg.proba = self._predict(resp.x, resp.y, resp.rgb_crop)
+                msg.proba = self._predict(resp.x_pixel, resp.y_pixel, resp.rgb_crop)
                 self.predictions.append(msg)
                 msg_list_pred.predictions = self.predictions
                 pub.publish(msg_list_pred)  # Publish the current list of predictions [ [x1,y1,prediction_1], ..... ]
@@ -66,11 +66,16 @@ class NodeBestPrediction:
 
 
     def _get_parameters(self):
-        self.invalidation_radius = rospy.get_param('~invalidation_radius')  # When a prediction is selected, we invalidate all the previous predictions in this radius
-        self.image_topic = rospy.get_param('~image_topic')
-        self.crop_width = rospy.get_param('~crop_width') # Size of cropped image
-        self.crop_height = rospy.get_param('~crop_height')
-        self.model_name = rospy.get_param('~model_name')
+        # self.invalidation_radius = rospy.get_param('~invalidation_radius')  # When a prediction is selected, we invalidate all the previous predictions in this radius
+        # self.image_topic = rospy.get_param('~image_topic')
+        # self.crop_width = rospy.get_param('~crop_width') # Size of cropped image
+        # self.crop_height = rospy.get_param('~crop_height')
+        # self.model_name = rospy.get_param('~model_name')
+        self.invalidation_radius = 150  # When a prediction is selected, we invalidate all the previous predictions in this radius
+        self.image_topic = "/RGBClean"
+        self.crop_width = 50 # Size of cropped image
+        self.crop_height = 50
+        self.model_name = "/common/modele/model-epoch=16-val_loss=0.07.ckpt"
 
 
     def _not_in_picking_zone(self, x, y):
@@ -107,9 +112,18 @@ class NodeBestPrediction:
         return features.detach().numpy(), prediction.detach()
 
 
-    def _crop_xy(self, image):
+    def _crop_xy(self, msg_image):
         """ Crop image at position (predict_center_x,predict_center_y) and with size (WIDTH,HEIGHT) """
-        return crop(image, self.predict_center_y - self.crop_height / 2, self.predict_center_x - self.crop_width / 2, self.crop_height, self.crop_width)  # top, left, height, width
+        pil_image = self._to_pil(msg_image)
+        return crop(pil_image, self.predict_center_y - self.crop_height / 2, self.predict_center_x - self.crop_width / 2, self.crop_height, self.crop_width)  # top, left, height, width
+
+
+    def _to_pil(self, msg):
+        """ Recover the image in the msg sensor_msgs.Image message and convert it to a PILImage"""
+        size = (msg.width, msg.height)  # Image size
+        img = PILImage.frombytes('RGB', size, msg.data)  # sensor_msg Image to PILImage
+        imgArray = np.array(img)
+        return img
 
 
     def _get_best_prediction(self, req):
