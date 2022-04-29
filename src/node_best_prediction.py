@@ -8,7 +8,6 @@ from raiv_libraries.srv import get_coordservice
 from raiv_libraries.get_coord_node import InBoxCoord
 from PIL import Image as PILImage
 import torch
-from torchvision import transforms
 from raiv_libraries.CNN import CNN
 from raiv_libraries.image_tools import ImageTools
 
@@ -27,25 +26,21 @@ class NodeBestPrediction:
     * rosservice call /best_prediction_service  (to get the current best prediction. It loads a new image and invalidates the points in the picking zone)
 
     """
-    def __init__(self):
-        self.predictions = []
-        msg_list_pred = ListOfPredictions()
+    def __init__(self, ckpt_model_file, invalidation_radius, image_topic):
         rospy.init_node('node_best_prediction')
+        # List of all predictions made for some random points
+        self.predictions = []
+        # Message used to send the list of all predictions
+        msg_list_pred = ListOfPredictions()
         # Provide the 'best_prediction_service' service
         rospy.Service('best_prediction_service', GetBestPrediction, self._get_best_prediction)
         # Publish the 'predictions' topic (a list of all Prediction)
         pub = rospy.Publisher('predictions', ListOfPredictions, queue_size=10)
-        self.invalidation_radius = 150  # When a prediction is selected, we invalidate all the previous predictions in this radius
-        self.image_topic = "/RGBClean"
-        self.model_name = "/common/modele/model-epoch=16-val_loss=0.07.ckpt"
+        self.invalidation_radius = invalidation_radius  # When a prediction is selected, we invalidate all the previous predictions in this radius
+        self.image_topic = image_topic
+        self.model_name = ckpt_model_file
         self._load_model()
         self.picking_point = None # No picking point yet
-        self.transform = transforms.Compose([
-            transforms.Lambda(lambda img: self._crop_xy(img)),
-            transforms.Resize(size=256),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-        ])
         rospy.wait_for_service('In_box_coordService')
         coord_serv = rospy.ServiceProxy('In_box_coordService', get_coordservice)
         while not rospy.is_shutdown():
@@ -128,7 +123,15 @@ class NodeBestPrediction:
 
 
 if __name__ == '__main__':
+    import argparse
+
+    parser = argparse.ArgumentParser(description='Compute a list of predictions for random points and provide the best one as a service.')
+    parser.add_argument('ckpt_model_file', type=str, help='CKPT model file')
+    parser.add_argument('--image_topic', type=str, default="/RGBClean", help='Topic which provides an image')
+    parser.add_argument('--invalidation_radius', type=int, default=150, help='Radius in pixels where predictions will be invalidated')
+    args = parser.parse_args()
+
     try:
-        n = NodeBestPrediction()
+        n = NodeBestPrediction(args.ckpt_model_file, args.invalidation_radius, args.image_topic)
     except rospy.ROSInterruptException:
         pass
