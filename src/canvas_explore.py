@@ -2,18 +2,7 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 import torch
-
-#from ur_icam_description.robotUR import RobotUR
-
-# WIDTH = HEIGHT = 56
-# dPoint = PerspectiveCalibration()
-# dPoint.setup_camera()
-# robot2 = Robot(Env_cam_bas)
-# rospy.init_node('explore2')
-# myRobot = RobotUR()
-# image_controller = ImageController(image_topic='/usb_cam2/image_raw')
-
-WIDTH = HEIGHT = 56
+from raiv_libraries.image_tools import ImageTools
 
 class CanvasExplore(QWidget):
 
@@ -36,14 +25,14 @@ class CanvasExplore(QWidget):
         modifiers = QApplication.keyboardModifiers()
         pos = event.pos()
         if event.button() == Qt.LeftButton:
+            self.center = event.pos()
             if modifiers == Qt.ControlModifier:  # Ctrl + left click
                 self.parent.ask_robot_to_pick(pos.x(), pos.y())
-            else:
+            else:  # Only left button click
                 if self.previous_image:  # A new click, we restore the previous image without the rectangle
                     self.image = self.previous_image
                     self.setMinimumSize(self.image.width(), self.image.height())
                 self.pressed = True
-                self.center = event.pos()
                 self.update()
         elif event.button() == Qt.RightButton:
             self.select_start = pos
@@ -90,8 +79,8 @@ class CanvasExplore(QWidget):
 
     def _draw_rectangle(self, qp):
         if self.parent.inference_model:  # A model exists, we can do inference
-            x = self.center.x() - WIDTH / 2
-            y = self.center.y() - HEIGHT / 2
+            x = self.center.x() - ImageTools.CROP_WIDTH / 2
+            y = self.center.y() - ImageTools.CROP_HEIGHT / 2
             qp.setRenderHint(QPainter.Antialiasing)
             qp.setPen(QPen(Qt.blue, 5))
             qp.drawPoint(self.center)
@@ -107,7 +96,7 @@ class CanvasExplore(QWidget):
                 qp.setPen(QPen(Qt.green, 1, Qt.DashLine))
             else:  # Fail
                 qp.setPen(QPen(Qt.red, 1, Qt.DashLine))
-            qp.drawRect(x, y, WIDTH, HEIGHT)
+            qp.drawRect(x, y, ImageTools.CROP_WIDTH, ImageTools.CROP_HEIGHT)
 
     def _draw_pred(self, qp):
         """ Display all predictions (green/red point + percentage of success) from self.all_preds list """

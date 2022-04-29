@@ -16,6 +16,8 @@ from raiv_libraries.image_model import ImageModel
 from raiv_camera_calibration.perspective_calibration import PerspectiveCalibration
 import geometry_msgs.msg as geometry_msgs
 from raiv_libraries.image_tools import ImageTools
+from torchvision.transforms.functional import crop
+from PIL import Image
 
 # global variables
 Z_PICK_ROBOT = 0.15 # Z coord before going down to pick
@@ -54,6 +56,7 @@ class ExploreWindow(QWidget):
         self.title = 'Camera'
         # event handlers
         self.btn_load_model.clicked.connect(self._load_model)
+        self.btn_load_images.clicked.connect(self.predict_from_image)
         self.btn_change_image.clicked.connect(self._move_robot)
         self.btn_activate_robot.clicked.connect(self._activate_robot)
         self.sb_threshold.valueChanged.connect(self._change_threshold)
@@ -66,15 +69,34 @@ class ExploreWindow(QWidget):
         self._set_image()
         self._load_model()
 
-    def predict(self, x, y):
+    def predict_from_point(self, x, y):
         """ Predict probability and class for a cropped image at (x,y) """
         self.predict_center_x = x
         self.predict_center_y = y
-        img = ImageTools.transform_crop_xy(self.image, x, y)  # Get the cropped transformed image
-        # imshow(img)  # For DEBUG
+        image_cropped = self._crop_xy(self.image, x, y)
+        img = ImageTools.transform_image(image_cropped)  # Get the cropped transformed image
         img = img.unsqueeze(0)  # To have a 4-dim tensor ([nb_of_images, channels, w, h])
+        return self.predict(img)
+
+    def predict_from_image(self):
+        """ Load the images data """
+        loaded_image = QFileDialog.getOpenFileName(self, 'Open image', '.', "Model files (*.png)", options=QFileDialog.DontUseNativeDialog)
+        if loaded_image[0]:
+            self.image = Image.open(loaded_image[0])
+        img = ImageTools.transform_image(self.image)  # Get the loaded images, resize in 256 and transformed in tensor
+        img = img.unsqueeze(0)  # To have a 4-dim tensor ([nb_of_images, channels, w, h])
+        pred = self.predict(img)
+        prob, cl = self.canvas._compute_prob_and_class(pred)
+        print(prob)
+
+    def predict(self, img):
         features, preds = self.image_model.evaluate_image(img, False)  # No processing
         return torch.exp(preds)
+
+    def _crop_xy(self, image, x, y):
+        """ Crop image at position (predict_center_x,predict_center_y) and with size (WIDTH,HEIGHT) """
+        return crop(image, y - ImageTools.CROP_HEIGHT/2, x - ImageTools.CROP_WIDTH/2,
+                    ImageTools.CROP_HEIGHT, ImageTools.CROP_WIDTH)  # top, left, height, width
 
     def compute_map(self, start_coord, end_coord):
         """ Compute a list of predictions and ask the canvas to draw them
@@ -91,6 +113,7 @@ class ExploreWindow(QWidget):
                 geometry_msgs.Vector3(x, y, Z_PICK_ROBOT), RobotUR.tool_down_pose
             )
             self.robot.pick(pose_for_pick)
+            self.robot.release_gripper()
 
     ############ Private methods ################
 
@@ -108,6 +131,7 @@ class ExploreWindow(QWidget):
             self.image_model = ImageModel(model_name='resnet18', ckpt_dir=os.path.dirname(fname[0]))
             self.inference_model = self.image_model.load_ckpt_model_file(ckpt_model_name)  # Load the selected models
             self.lbl_model_name.setText(ckpt_model_name)
+
 
     def _activate_robot(self):
         """ """
