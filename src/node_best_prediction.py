@@ -20,9 +20,9 @@ class NodeBestPrediction:
     * Publisher : publish on the 'predictions' topic a ListOfPredictions message
 
     How to run?
-    * roslaunch usb_cam usb_cam-test.launch   (to provide a /usb_cam/image_raw topic)
+    * rosrun raiv_libraries ImageProcessing_Node.py (to provide a /RGBClean topic)
     * rosrun raiv_research node_visu_prediction.py   (to view the success/fail prediction points on the image)
-    * rosrun raiv_research node_best_prediction.py   (to provide a /predictions and /new_image topics)
+    * rosrun raiv_research node_best_prediction.py CKPT_FILE --invalidation_radius INT --image_topic STR (to provide a /predictions topic)
     * rosservice call /best_prediction_service  (to get the current best prediction. It loads a new image and invalidates the points in the picking zone)
 
     """
