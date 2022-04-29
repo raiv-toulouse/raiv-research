@@ -1,20 +1,16 @@
 #!/usr/bin/env python3
 
 import rospy
-import random
 import math
 from raiv_research.srv import GetBestPrediction, GetBestPredictionResponse
 from raiv_research.msg import Prediction, ListOfPredictions
 from raiv_libraries.srv import get_coordservice
 from raiv_libraries.get_coord_node import InBoxCoord
 from PIL import Image as PILImage
-from sensor_msgs.msg import Image
 import torch
-from torchvision.transforms.functional import crop
 from torchvision import transforms
 from raiv_libraries.CNN import CNN
-import cv2
-import numpy as np
+from raiv_libraries.image_tools import ImageTools
 
 
 class NodeBestPrediction:
@@ -39,7 +35,9 @@ class NodeBestPrediction:
         rospy.Service('best_prediction_service', GetBestPrediction, self._get_best_prediction)
         # Publish the 'predictions' topic (a list of all Prediction)
         pub = rospy.Publisher('predictions', ListOfPredictions, queue_size=10)
-        self._get_parameters()
+        self.invalidation_radius = 150  # When a prediction is selected, we invalidate all the previous predictions in this radius
+        self.image_topic = "/RGBClean"
+        self.model_name = "/common/modele/model-epoch=16-val_loss=0.07.ckpt"
         self._load_model()
         self.picking_point = None # No picking point yet
         self.transform = transforms.Compose([
@@ -52,7 +50,7 @@ class NodeBestPrediction:
         coord_serv = rospy.ServiceProxy('In_box_coordService', get_coordservice)
         while not rospy.is_shutdown():
             # Ask 'In_box_coordService' service for a random point in the picking box located on one of the objects
-            resp = coord_serv('random', InBoxCoord.PICK, InBoxCoord.ON_OBJECT, self.crop_width, self.crop_height, None, None)
+            resp = coord_serv('random', InBoxCoord.PICK, InBoxCoord.ON_OBJECT, ImageTools.CROP_WIDTH, ImageTools.CROP_HEIGHT, None, None)
             # Compute prediction only for necessary points (on an object, not in forbidden zone, ...)
             if self._not_in_picking_zone(resp.x_pixel, resp.y_pixel):
                 msg = Prediction()
@@ -63,19 +61,6 @@ class NodeBestPrediction:
                 msg_list_pred.predictions = self.predictions
                 pub.publish(msg_list_pred)  # Publish the current list of predictions [ [x1,y1,prediction_1], ..... ]
             rospy.sleep(0.01)
-
-
-    def _get_parameters(self):
-        # self.invalidation_radius = rospy.get_param('~invalidation_radius')  # When a prediction is selected, we invalidate all the previous predictions in this radius
-        # self.image_topic = rospy.get_param('~image_topic')
-        # self.crop_width = rospy.get_param('~crop_width') # Size of cropped image
-        # self.crop_height = rospy.get_param('~crop_height')
-        # self.model_name = rospy.get_param('~model_name')
-        self.invalidation_radius = 150  # When a prediction is selected, we invalidate all the previous predictions in this radius
-        self.image_topic = "/RGBClean"
-        self.crop_width = 50 # Size of cropped image
-        self.crop_height = 50
-        self.model_name = "/common/modele/model-epoch=16-val_loss=0.07.ckpt"
 
 
     def _not_in_picking_zone(self, x, y):
@@ -115,14 +100,13 @@ class NodeBestPrediction:
     def _crop_xy(self, msg_image):
         """ Crop image at position (predict_center_x,predict_center_y) and with size (WIDTH,HEIGHT) """
         pil_image = self._to_pil(msg_image)
-        return crop(pil_image, self.predict_center_y - self.crop_height / 2, self.predict_center_x - self.crop_width / 2, self.crop_height, self.crop_width)  # top, left, height, width
+        return ImageTools.crop_xy(pil_image, self.predict_center_x, self.predict_center_y)
 
 
     def _to_pil(self, msg):
         """ Recover the image in the msg sensor_msgs.Image message and convert it to a PILImage"""
         size = (msg.width, msg.height)  # Image size
         img = PILImage.frombytes('RGB', size, msg.data)  # sensor_msg Image to PILImage
-        imgArray = np.array(img)
         return img
 
 
