@@ -16,7 +16,6 @@ from raiv_libraries.image_model import ImageModel
 from raiv_camera_calibration.perspective_calibration import PerspectiveCalibration
 import geometry_msgs.msg as geometry_msgs
 from raiv_libraries.image_tools import ImageTools
-from torchvision.transforms.functional import crop
 from PIL import Image
 
 # global variables
@@ -73,7 +72,7 @@ class ExploreWindow(QWidget):
         """ Predict probability and class for a cropped image at (x,y) """
         self.predict_center_x = x
         self.predict_center_y = y
-        image_cropped = self._crop_xy(self.image, x, y)
+        image_cropped = ImageTools._crop_xy(self.image, x, y)
         img = ImageTools.transform_image(image_cropped)  # Get the cropped transformed image
         img = img.unsqueeze(0)  # To have a 4-dim tensor ([nb_of_images, channels, w, h])
         return self.predict(img)
@@ -92,11 +91,6 @@ class ExploreWindow(QWidget):
     def predict(self, img):
         features, preds = self.image_model.evaluate_image(img, False)  # No processing
         return torch.exp(preds)
-
-    def _crop_xy(self, image, x, y):
-        """ Crop image at position (predict_center_x,predict_center_y) and with size (WIDTH,HEIGHT) """
-        return crop(image, y - ImageTools.CROP_HEIGHT/2, x - ImageTools.CROP_WIDTH/2,
-                    ImageTools.CROP_HEIGHT, ImageTools.CROP_WIDTH)  # top, left, height, width
 
     def compute_map(self, start_coord, end_coord):
         """ Compute a list of predictions and ask the canvas to draw them
