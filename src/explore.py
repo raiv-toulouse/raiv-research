@@ -86,6 +86,7 @@ class ExploreWindow(QWidget):
         img = img.unsqueeze(0)  # To have a 4-dim tensor ([nb_of_images, channels, w, h])
         pred = self.predict(img)
         prob, cl = self.canvas._compute_prob_and_class(pred)
+        self.prediction_from_image.setText("La prédiction de l'image chargé est : " + str(prob) + " %")
         print(prob)
 
     def predict(self, img):
