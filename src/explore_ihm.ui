@@ -34,6 +34,13 @@
       </widget>
      </item>
      <item>
+      <widget class="QPushButton" name="btn_load_images">
+       <property name="text">
+        <string>Load images</string>
+       </property>
+      </widget>
+     </item>
+     <item>
       <widget class="QLabel" name="lbl_model_name">
        <property name="text">
         <string/>

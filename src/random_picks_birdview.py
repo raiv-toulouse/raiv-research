@@ -61,7 +61,7 @@ def xyz_to_pose(x, y, z):
 def save_images(folder, rgb, depth):
     image_name = str(datetime.now()) + '.png'
     for image_type, image in zip(['rgb', 'depth'], [rgb, depth]):
-        image_path = (parent_image_folder / folder / image_type / image_name).resolve()
+        image_path = (parent_image_folder / image_type / folder / image_name ).resolve()
         cv2.imwrite(str(image_path), image)
 
 
@@ -120,9 +120,9 @@ while True:
     depth_crop = depth_crop * 255
 
     # For debug
-    cv2.imshow("rgb256", cv2.resize(rgb_crop, (256, 256)))
-    cv2.imshow("depth256", cv2.resize(depth_crop, (256, 256)))
-    cv2.waitKey(1000)
+    #cv2.imshow("rgb256", cv2.resize(rgb_crop, (256, 256)))
+    #cv2.imshow("depth256", cv2.resize(depth_crop, (256, 256)))
+    #cv2.waitKey(1000)
 
     # Move robot to pick position
     pick_pose = xyz_to_pose(resp_pick.x_robot, resp_pick.y_robot, Z_PICK_PLACE)
