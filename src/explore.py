@@ -72,7 +72,7 @@ class ExploreWindow(QWidget):
         """ Predict probability and class for a cropped image at (x,y) """
         self.predict_center_x = x
         self.predict_center_y = y
-        image_cropped = ImageTools._crop_xy(self.image, x, y)
+        image_cropped = ImageTools.crop_xy(self.image, x, y)
         img = ImageTools.transform_image(image_cropped)  # Get the cropped transformed image
         img = img.unsqueeze(0)  # To have a 4-dim tensor ([nb_of_images, channels, w, h])
         return self.predict(img)
@@ -159,7 +159,7 @@ class ExploreWindow(QWidget):
         count = 0
         for x in range(start_coord.x(), end_coord.x(), steps):
             for y in range(start_coord.y(), end_coord.y(), steps):
-                preds = self.predict(x,y)
+                preds = self.predict_from_point(x,y)
                 all_preds.append([x, y, preds])
                 count += 1
         end = time.time()
