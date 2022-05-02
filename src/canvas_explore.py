@@ -84,7 +84,7 @@ class CanvasExplore(QWidget):
             qp.setRenderHint(QPainter.Antialiasing)
             qp.setPen(QPen(Qt.blue, 5))
             qp.drawPoint(self.center)
-            pred = self.parent.predict(self.center.x(), self.center.y())  # calculate the prediction wih CNN
+            pred = self.parent.predict_from_point(self.center.x(), self.center.y())  # calculate the prediction wih CNN
             prob, cl = self._compute_prob_and_class(pred)
             fail_or_success = 'Fail' if cl.item()==0 else 'Success'
             text = f'{fail_or_success} : {prob:.1f}%'
