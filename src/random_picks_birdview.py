@@ -29,6 +29,7 @@ from raiv_libraries.robotUR import RobotUR
 import geometry_msgs.msg as geometry_msgs
 from sensor_msgs.msg import Image
 from raiv_libraries.image_tools import ImageTools
+import os
 
 #
 # Constants
@@ -63,6 +64,7 @@ def save_images(folder, rgb, depth):
     for image_type, image in zip(['rgb', 'depth'], [rgb, depth]):
         image_path = (parent_image_folder / image_type / folder / image_name ).resolve()
         cv2.imwrite(str(image_path), image)
+        image_path.chmod(0o777) # Write permission for everybody
 
 
 #
@@ -88,6 +90,7 @@ for sf_folder in ['success', 'fail']:
     for rd_folder in ['rgb', 'depth']:
         folder = parent_image_folder / rd_folder / sf_folder
         Path.mkdir(folder, parents=True, exist_ok=True)
+        folder.chmod(0o777)  # Write permission for everybody
 
 rospy.init_node('random_picks_birdview')
 # A UR robot with a vaccum gripper

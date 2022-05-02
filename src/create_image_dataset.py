@@ -160,14 +160,13 @@ class CreateImageDataset(QWidget):
 
     def _save_images(self, folder):
         image_name = str(datetime.now()) + '.png'
-
         bridge = CvBridge()
         for image_type, image in zip(['rgb', 'depth'], [self.rgb, self.depth]):
             image_path = (self.parent_image_folder / folder / image_type).resolve()
             os.chdir(image_path)
-            print(image_type)
             image = bridge.imgmsg_to_cv2(image, desired_encoding = 'passthrough')
             cv2.imwrite(image_name, image)
+            image_name.chmod(0o777)  # Write permission for everybody
 
     #Funciton used to normalize the image
     def _histeq(self,bins=255):
