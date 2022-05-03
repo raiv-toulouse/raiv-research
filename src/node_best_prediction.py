@@ -36,6 +36,8 @@ class NodeBestPrediction:
         msg_list_pred = ListOfPredictions()
         # Provide the 'best_prediction_service' service
         rospy.Service('best_prediction_service', GetBestPrediction, self._get_best_prediction)
+        self.pub_image = rospy.Publisher('new_image', Image, queue_size=10)
+        self._get_new_image()
         # Publish the 'predictions' topic (a list of all Prediction)
         pub = rospy.Publisher('predictions', ListOfPredictions, queue_size=10)
         self.invalidation_radius = invalidation_radius  # When a prediction is selected, we invalidate all the previous predictions in this radius
@@ -106,12 +108,14 @@ class NodeBestPrediction:
         img = PILImage.frombytes('RGB', size, msg.data)  # sensor_msg Image to PILImage
         return img
 
-
-    def _get_best_prediction(self, req):
-        """ best_prediction_service service callback which return a Prediction message (the best, highest one)"""
+    def _get_new_image(self):
         # Get a new image and publish it to the new_image topic(for node_visu_prediction.py )
         msg_image = rospy.wait_for_message(IMAGE_TOPIC, Image)
         self.pub_image.publish(msg_image)
+
+    def _get_best_prediction(self, req):
+        """ best_prediction_service service callback which return a Prediction message (the best, highest one)"""
+        self._get_new_image()
         # Find best prediction
         best_prediction = self.predictions[0]
         for prediction in self.predictions:
