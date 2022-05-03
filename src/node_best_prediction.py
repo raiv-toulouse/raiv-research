@@ -10,7 +10,9 @@ from PIL import Image as PILImage
 import torch
 from raiv_libraries.CNN import CNN
 from raiv_libraries.image_tools import ImageTools
+from sensor_msgs.msg import Image
 
+IMAGE_TOPIC = "/RGBClean"
 
 class NodeBestPrediction:
     """
@@ -107,6 +109,9 @@ class NodeBestPrediction:
 
     def _get_best_prediction(self, req):
         """ best_prediction_service service callback which return a Prediction message (the best, highest one)"""
+        # Get a new image and publish it to the new_image topic(for node_visu_prediction.py )
+        msg_image = rospy.wait_for_message(IMAGE_TOPIC, Image)
+        self.pub_image.publish(msg_image)
         # Find best prediction
         best_prediction = self.predictions[0]
         for prediction in self.predictions:
