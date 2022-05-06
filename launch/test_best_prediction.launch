@@ -8,7 +8,7 @@
     <param name="image_topic" value="/RGBClean"/>
     <param name="crop_width" value="50"/>  <!-- size of cropped image -->
     <param name="crop_height" value="50"/>
-    <param name="model_name" value="/common/modele/model-epoch=16-val_loss=0.07.ckpt"/>
+    <param name="model_name" value="/common/model_trained/Test_banque.ckpt"/>
   </node>
   <node name="visu_prediction" pkg="raiv_research" type="node_visu_prediction.py" output="screen">
     <param name="prediction_threshold" value="0.5"/>

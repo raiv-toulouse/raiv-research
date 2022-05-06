@@ -47,9 +47,10 @@ class NodeBestPrediction:
         self.picking_point = None # No picking point yet
         rospy.wait_for_service('In_box_coordService')
         coord_serv = rospy.ServiceProxy('In_box_coordService', get_coordservice)
+        resp = coord_serv('random', InBoxCoord.PICK, InBoxCoord.ON_OBJECT, ImageTools.CROP_WIDTH, ImageTools.CROP_HEIGHT, None, None)
         while not rospy.is_shutdown():
             # Ask 'In_box_coordService' service for a random point in the picking box located on one of the objects
-            resp = coord_serv('random', InBoxCoord.PICK, InBoxCoord.ON_OBJECT, ImageTools.CROP_WIDTH, ImageTools.CROP_HEIGHT, None, None)
+            resp = coord_serv('random_no_refresh', InBoxCoord.PICK, InBoxCoord.ON_OBJECT, ImageTools.CROP_WIDTH, ImageTools.CROP_HEIGHT, None, None)
             # Compute prediction only for necessary points (on an object, not in forbidden zone, ...)
             if self._not_in_picking_zone(resp.x_pixel, resp.y_pixel):
                 msg = Prediction()
@@ -79,27 +80,23 @@ class NodeBestPrediction:
         self.inference_model.freeze()
 
 
-    def _predict(self, x, y, rgb_crop):
+    def _predict(self, x, y, msg_rgb_crop):
         """ Predict probability and class for a cropped image centered at (x,y) """
         self.predict_center_x = x
         self.predict_center_y = y
-        img = self.transform(rgb_crop)  # Get the cropped transformed image (size = [CROP_WIDTH,CROP_HEIGHT])
+        #image_cropped = self.crop_xy(msg_rgb_crop, x, y)
+        image_pil = self._to_pil(msg_rgb_crop)
+        img = ImageTools.transform_image(image_pil)  # Get the cropped transformed image (size = [CROP_WIDTH,CROP_HEIGHT])
         img = img.unsqueeze(0)  # To have a 4-dim tensor ([nb_of_images, channels, w, h])
         _, preds = self._evaluate_image(img, self.inference_model)
         pred = torch.exp(preds)
         return pred[0][1].item()  # Return the success probability
 
 
-    @torch.no_grad()
-    def _evaluate_image(self, image, model):
-        features, prediction = model(image)
-        return features.detach().numpy(), prediction.detach()
-
-
-    def _crop_xy(self, msg_image):
+    def crop_xy(self, msg_image, x, y):
         """ Crop image at position (predict_center_x,predict_center_y) and with size (WIDTH,HEIGHT) """
         pil_image = self._to_pil(msg_image)
-        return ImageTools.crop_xy(pil_image, self.predict_center_x, self.predict_center_y)
+        return ImageTools.crop_xy(pil_image, x, y)
 
 
     def _to_pil(self, msg):
@@ -113,10 +110,18 @@ class NodeBestPrediction:
         msg_image = rospy.wait_for_message(IMAGE_TOPIC, Image)
         self.pub_image.publish(msg_image)
 
+    @torch.no_grad()
+    def _evaluate_image(self, image, model):
+        features, prediction = model(image)
+        return features.detach().numpy(), prediction.detach()
+
+
     def _get_best_prediction(self, req):
-        """ best_prediction_service service callback which return a Prediction message (the best, highest one)"""
+        """ best_prediction_service service callback which returns a Prediction message (the best, highest one)"""
         self._get_new_image()
         # Find best prediction
+        if not(self.predictions): # This list is empty
+            raise rospy.ServiceException("self.predictions : empty list")
         best_prediction = self.predictions[0]
         for prediction in self.predictions:
             if prediction.proba > best_prediction.proba:
@@ -137,7 +142,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Compute a list of predictions for random points and provide the best one as a service.')
     parser.add_argument('ckpt_model_file', type=str, help='CKPT model file')
     parser.add_argument('--image_topic', type=str, default="/RGBClean", help='Topic which provides an image')
-    parser.add_argument('--invalidation_radius', type=int, default=150, help='Radius in pixels where predictions will be invalidated')
+    parser.add_argument('--invalidation_radius', type=int, default=30, help='Radius in pixels where predictions will be invalidated')
     args = parser.parse_args()
 
     try:

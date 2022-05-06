@@ -22,7 +22,7 @@ class NodeVisuPrediction(QWidget):
         rospy.init_node('node_visu_prediction')
         rospy.Subscriber("predictions", ListOfPredictions, self._update_predictions)
         rospy.Subscriber('new_image', Image, self._change_image)
-        self.prediction_threshold = rospy.get_param('~prediction_threshold') # threshold for success grasping prediction
+        self.prediction_threshold = 0.5  #rospy.get_param('~prediction_threshold') # threshold for success grasping prediction
         self.predictions = None
         self.image = None
 
