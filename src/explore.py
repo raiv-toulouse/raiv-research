@@ -1,6 +1,7 @@
 import sys
 from PyQt5.QtWidgets import *
 from PyQt5 import uic
+import cv2
 import os
 import time
 import torch
@@ -19,7 +20,7 @@ from raiv_libraries.image_tools import ImageTools
 from PIL import Image
 
 # global variables
-Z_PICK_ROBOT = 0.15 # Z coord before going down to pick
+Z_PICK_ROBOT = 0.15  # Z coord before going down to pick
 X_OUT = 0.0  # XYZ coord where the robot is out of camera scope
 Y_OUT = -0.3
 Z_OUT = 0.12
@@ -27,7 +28,8 @@ Z_OUT = 0.12
 ### Used for DEBUG purpose
 matplotlib.use('Qt5Agg')
 
-def imshow(images, title=None, pil_image = False):
+
+def imshow(images, title=None, pil_image=False):
     """Imshow for Tensor. """
     if pil_image:
         inp = images
@@ -51,7 +53,7 @@ class ExploreWindow(QWidget):
 
     def __init__(self, calibration_folder):
         super().__init__()
-        uic.loadUi("explore_ihm.ui",self) #needs the canvas_explore.py file in the current directory
+        uic.loadUi("explore_ihm.ui", self)  # needs the canvas_explore.py file in the current directory
         self.title = 'Camera'
         # event handlers
         self.btn_load_model.clicked.connect(self._load_model)
@@ -79,7 +81,8 @@ class ExploreWindow(QWidget):
 
     def predict_from_image(self):
         """ Load the images data """
-        loaded_image = QFileDialog.getOpenFileName(self, 'Open image', '.', "Model files (*.png)", options=QFileDialog.DontUseNativeDialog)
+        loaded_image = QFileDialog.getOpenFileName(self, 'Open image', '.', "Model files (*.png)",
+                                                   options=QFileDialog.DontUseNativeDialog)
         if loaded_image[0]:
             self.image = Image.open(loaded_image[0])
         img = ImageTools.transform_image(self.image)  # Get the loaded images, resize in 256 and transformed in tensor
@@ -120,13 +123,13 @@ class ExploreWindow(QWidget):
 
     def _load_model(self):
         """ Load a new model """
-        fname = QFileDialog.getOpenFileName(self, 'Open CKPT model file', '.', "Model files (*.ckpt)", options=QFileDialog.DontUseNativeDialog)
+        fname = QFileDialog.getOpenFileName(self, 'Open CKPT model file', '.', "Model files (*.ckpt)",
+                                            options=QFileDialog.DontUseNativeDialog)
         if fname[0]:
             ckpt_model_name = os.path.basename(fname[0])  # Only the name, without path
             self.image_model = ImageModel(model_name='resnet18', ckpt_dir=os.path.dirname(fname[0]))
             self.inference_model = self.image_model.load_ckpt_model_file(ckpt_model_name)  # Load the selected models
             self.lbl_model_name.setText(ckpt_model_name)
-
 
     def _activate_robot(self):
         """ """
@@ -154,16 +157,27 @@ class ExploreWindow(QWidget):
         [ [x, y, tensor([[prob_fail, proba_success]])], ...] with x,y the center of cropped image size (WIDTH,HEIGHT)
         """
         start = time.time()
+        fichier = open('/common/predictions_explore.txt', 'w')
+        txt = 'Prédictions de explore.py'
+        fichier.write(txt.center(20,'*'))
         all_preds = []
         steps = int(self.edt_nb_pixels_per_step.text())
         count = 0
         for x in range(start_coord.x(), end_coord.x(), steps):
             for y in range(start_coord.y(), end_coord.y(), steps):
-                preds = self.predict_from_point(x,y)
+                preds = self.predict_from_point(x, y)
                 all_preds.append([x, y, preds])
+                texte = '\nx = ' + str(all_preds[0][0]) + ', y = ' + str(all_preds[0][1]) + ', FAIL : ' + str(
+                    preds[0][0]) + ', SUCCESS : ' + str(preds[0][1])
+                fichier.write(texte)
                 count += 1
         end = time.time()
-        self.lbl_result_map.setText(f'{count} inferences in {end-start:.1f} s')
+        testimg = self.image
+        imgArray = np.asarray(testimg)
+        img_rgb = cv2.cvtColor(imgArray, cv2.COLOR_RGB2BGR)
+        cv2.imwrite('/common/image_predictions.jpg', img_rgb)
+        fichier.close
+        self.lbl_result_map.setText(f'{count} inferences in {end - start:.1f} s')
         return all_preds
 
 
