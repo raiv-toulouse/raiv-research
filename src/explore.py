@@ -167,8 +167,7 @@ class ExploreWindow(QWidget):
             for y in range(start_coord.y(), end_coord.y(), steps):
                 preds = self.predict_from_point(x, y)
                 all_preds.append([x, y, preds])
-                texte = '\nx = ' + str(all_preds[0][0]) + ', y = ' + str(all_preds[0][1]) + ', FAIL : ' + str(
-                    preds[0][0]) + ', SUCCESS : ' + str(preds[0][1])
+                texte = '\n' + str(x) + ', ' + str(y) + ', ' + str(preds[0][1].item())
                 fichier.write(texte)
                 count += 1
         end = time.time()
@@ -176,7 +175,7 @@ class ExploreWindow(QWidget):
         imgArray = np.asarray(testimg)
         img_rgb = cv2.cvtColor(imgArray, cv2.COLOR_RGB2BGR)
         cv2.imwrite('/common/image_predictions.jpg', img_rgb)
-        fichier.close
+        fichier.close()
         self.lbl_result_map.setText(f'{count} inferences in {end - start:.1f} s')
         return all_preds
 
