@@ -130,18 +130,20 @@ while True:
     # Move robot to pick position
     pick_pose = xyz_to_pose(resp_pick.x_robot, resp_pick.y_robot, Z_PICK_PLACE)
     object_gripped = robot.pick(pick_pose)
-    # If an object is gripped
-    if object_gripped:
-        # Place the object
-        print(resp_place.x_pixel, 'Xplace')
-        print(resp_place.y_pixel, 'Yplace')
-        place_pose = xyz_to_pose(resp_place.x_robot, resp_place.y_robot, Z_PICK_PLACE)
-        robot.place(place_pose)
+    #####object_gripped = self.check_if_object_gripped()
+    # Place the object
+    print(resp_place.x_pixel, 'Xplace')
+    print(resp_place.y_pixel, 'Yplace')
+    place_pose = xyz_to_pose(resp_place.x_robot, resp_place.y_robot, Z_PICK_PLACE)
+    robot.place(place_pose)
+    object_gripped = robot.object_gripped()
+    robot.release_gripper()        # Switch off the gripper
+
+    if object_gripped == True:
         save_images('success', rgb_crop, depth_crop)               # Save images in success folders
-        robot.go_to_xyz_position(X_INT, Y_INT, Z_INT, duration=2)  # Intermediate position to avoid collision with the shoulder
+        #robot.go_to_xyz_position(X_INT, Y_INT, Z_INT, duration=2)  # Intermediate position to avoid collision with the shoulder
     else:
-        robot.release_gripper()                                # Switch off the gripper
         save_images('fail', rgb_crop, depth_crop)       # Save images in fail folders
-        robot.go_to_xyz_position(X_INT, Y_INT, Z_INT, duration=2)  # Intermediate position to avoid collision with the shoulder
+        #robot.go_to_xyz_position(X_INT, Y_INT, Z_INT, duration=2)  # Intermediate position to avoid collision with the shoulder
 
     robot.go_to_xyz_position(X_OUT, Y_OUT, Z_OUT, duration=2)  # The robot must go out of the camera field
