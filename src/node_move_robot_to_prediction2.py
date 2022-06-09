@@ -11,34 +11,18 @@ from raiv_libraries.image_tools import ImageTools
 from raiv_libraries.get_coord_node import InBoxCoord
 from raiv_libraries.srv import get_coordservice
 
-Z_PICK_PLACE = 0.12  # Z coord to start pick or place movement (in meter)
-X_INT = 0.3  # XYZ coord where the robot is on intermediaire position (in meter)
-Y_INT = 0.0
-Z_INT = 0.12
+
+
 Z_PICK_ROBOT = 0.12 # Z coord before going down to pick
 X_OUT = 0.21  # XYZ coord where the robot is out of camera scope
 Y_OUT = -0.27
-Z_OUT = 0.12
+Z_OUT = 0.16
+X_PLACE = -0.003
+Y_PLACE = -0.29
+Z_PLACE = 0.16  # Z coord to start place movement (in meter)
 
-
-def get_best_prediction_coord():
-    """ With best_prediction_service, ask for the best prediction provided by node_best_prediction.py """
-    rospy.wait_for_service('best_prediction_service')
-    try:
-        service_add = rospy.ServiceProxy('best_prediction_service', GetBestPrediction)
-        resp = service_add()
-        proba = float(resp.pred.proba)
-        if proba < 0.4:
-            return
-
-        else:
-            coord = [resp.pred.x, resp.pred.y]
-            return coord
-
-    except rospy.ServiceException as e:
-        print("Service call fails: %s"%e)
-        rospy.sleep(1)
-        get_best_prediction_coord()  # Call this method until a best prediction is returned by best_prediction_service
+rospy.wait_for_service('best_prediction_service')
+call_service = rospy.ServiceProxy('best_prediction_service', GetBestPrediction)
 
 def xyz_to_pose(x, y, z):
     return geometry_msgs.Pose(geometry_msgs.Vector3(x, y, z), RobotUR.tool_down_pose)
@@ -55,24 +39,30 @@ if __name__=="__main__":
     robot = Robot_with_vaccum_gripper()
     robot.go_to_xyz_position(X_OUT, Y_OUT, Z_OUT)  # Move the robot out of camera scope
 
+
     # We can now ask a service to get and process 3D images
     coord_service_name = 'In_box_coordService'
     rospy.wait_for_service(coord_service_name)
     coord_service = rospy.ServiceProxy(coord_service_name, get_coordservice)
 
+    resp = call_service('classic')  # Pixel coord of best prediction
+    print('proba ---------------: ', resp.pred.proba)
+    coord_pixel = [resp.pred.x, resp.pred.y]
+    x, y, z = dPoint.from_2d_to_3d(coord_pixel)
+    pose_for_pick = geometry_msgs.Pose(geometry_msgs.Vector3(x, y, Z_PICK_ROBOT), RobotUR.tool_down_pose)
+    object_gripped = robot.pick(pose_for_pick)
+    object_gripped = robot.object_gripped()
+
+
     while True:
-        # Just refresh the depth image in the get_coord_node
+        robot.go_to_xyz_position(X_OUT, Y_OUT, Z_OUT, duration=2)
+        # refresh of depth image
         resp_place = coord_service('random_no_swap', InBoxCoord.PLACE, InBoxCoord.IN_THE_BOX, ImageTools.CROP_WIDTH, ImageTools.CROP_HEIGHT, None, None)
-        coord_pixel = get_best_prediction_coord() # Pixel coord of best prediction
-        x, y, z = dPoint.from_2d_to_3d(coord_pixel)
-        pose_for_pick = geometry_msgs.Pose(
-            geometry_msgs.Vector3(x, y, Z_PICK_ROBOT), RobotUR.tool_down_pose
-        )
-        object_gripped = robot.pick(pose_for_pick)
-        object_gripped = robot.object_gripped()
+        resp = call_service('just_invalidation')  # Launch the best_prediction_service to refresh all predictions and rgb image
+
         if object_gripped:
             # Place the object
-            place_pose = xyz_to_pose(resp_place.x_robot, resp_place.y_robot, Z_PICK_PLACE)
+            place_pose = xyz_to_pose(X_PLACE, Y_PLACE, Z_PLACE)
             robot.place(place_pose)
             robot.release_gripper()  # Switch off the gripper
 
@@ -81,4 +71,14 @@ if __name__=="__main__":
 
         # The robot must go out of the camera field
         robot.go_to_xyz_position(X_OUT, Y_OUT, Z_OUT, duration=2)
+
+        resp = call_service('classic')  # Pixel coord of best prediction
+        print('proba ---------------: ', resp.pred.proba)
+        coord_pixel = [resp.pred.x, resp.pred.y]
+        x, y, z = dPoint.from_2d_to_3d(coord_pixel)
+        pose_for_pick = geometry_msgs.Pose(geometry_msgs.Vector3(x, y, Z_PICK_ROBOT), RobotUR.tool_down_pose)
+        object_gripped = robot.pick(pose_for_pick)
+        object_gripped = robot.object_gripped()
+
+
 

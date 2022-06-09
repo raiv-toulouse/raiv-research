@@ -5,14 +5,21 @@ import math
 from raiv_research.srv import GetBestPrediction, GetBestPredictionResponse
 from raiv_research.msg import Prediction, ListOfPredictions
 from raiv_libraries.srv import get_coordservice
+from raiv_libraries.srv import PickingBoxIsEmpty, PickingBoxIsEmptyResponse
 from raiv_libraries.get_coord_node import InBoxCoord
 from PIL import Image as PILImage
+import numpy as np
 import torch
 from raiv_libraries.CNN import CNN
 from raiv_libraries.image_tools import ImageTools
 from sensor_msgs.msg import Image
+import cv2
+from cv_bridge import CvBridge
+import time
+
 
 IMAGE_TOPIC = "/RGBClean"
+THRESHOLD_ABOVE_TABLE = 10
 
 class NodeBestPrediction:
     """
@@ -35,7 +42,7 @@ class NodeBestPrediction:
         # Message used to send the list of all predictions
         msg_list_pred = ListOfPredictions()
         # Provide the 'best_prediction_service' service
-        rospy.Service('best_prediction_service', GetBestPrediction, self._get_best_prediction)
+        rospy.Service('best_prediction_service', GetBestPrediction, self.process_service)
         self.pub_image = rospy.Publisher('new_image', Image, queue_size=10)
         self._get_new_image()
         # Publish the 'predictions' topic (a list of all Prediction)
@@ -45,22 +52,31 @@ class NodeBestPrediction:
         self.model_name = ckpt_model_file
         self._load_model()
         self.picking_point = None # No picking point yet
+        ### Appel du service emptybox
+        rospy.wait_for_service('/Empty_Picking_Box')
+        self.call_service = rospy.ServiceProxy('/Empty_Picking_Box', PickingBoxIsEmpty)
         rospy.wait_for_service('In_box_coordService')
         coord_serv = rospy.ServiceProxy('In_box_coordService', get_coordservice)
         resp = coord_serv('random', InBoxCoord.PICK, InBoxCoord.ON_OBJECT, ImageTools.CROP_WIDTH, ImageTools.CROP_HEIGHT, None, None)
-        while not rospy.is_shutdown():
+        while not self._continue_to_picking():
             # Ask 'In_box_coordService' service for a random point in the picking box located on one of the objects
             resp = coord_serv('random_no_refresh', InBoxCoord.PICK, InBoxCoord.ON_OBJECT, ImageTools.CROP_WIDTH, ImageTools.CROP_HEIGHT, None, None)
             # Compute prediction only for necessary points (on an object, not in forbidden zone, ...)
-            if self._not_in_picking_zone(resp.x_pixel, resp.y_pixel):
-                msg = Prediction()
-                msg.x = resp.x_pixel
-                msg.y = resp.y_pixel
-                msg.proba = self._predict(resp.x_pixel, resp.y_pixel, resp.rgb_crop)
-                self.predictions.append(msg)
-                msg_list_pred.predictions = self.predictions
-                pub.publish(msg_list_pred)  # Publish the current list of predictions [ [x1,y1,prediction_1], ..... ]
+            #if self._not_in_picking_zone(resp.x_pixel, resp.y_pixel):
+            msg = Prediction()
+            msg.x = resp.x_pixel
+            msg.y = resp.y_pixel
+            msg.proba = self._predict(resp.x_pixel, resp.y_pixel, resp.rgb_crop)
+            self.predictions.append(msg)
+            msg_list_pred.predictions = self.predictions
+            pub.publish(msg_list_pred)  # Publish the current list of predictions [ [x1,y1,prediction_1], ..... ]
             rospy.sleep(0.01)
+        print('dévracage fini')
+
+
+    def _continue_to_picking(self):
+        picking_box_empty = self.call_service().empty_box
+        return picking_box_empty
 
 
     def _not_in_picking_zone(self, x, y):
@@ -116,24 +132,49 @@ class NodeBestPrediction:
         return features.detach().numpy(), prediction.detach()
 
 
-    def _get_best_prediction(self, req):
-        """ best_prediction_service service callback which returns a Prediction message (the best, highest one)"""
+    def process_service(self, req):
         self._get_new_image()
+
+        if req.mode == 'classic':
+            prediction = self._get_best_prediction()
+        elif req.mode == 'without_invalidation':
+            prediction = self._get_best_prediction(invalidation=False)
+        elif req.mode == 'just_invalidation':
+            prediction = self._get_best_prediction(prediction=False, invalidation=False)
+
+        return GetBestPredictionResponse(prediction)
+
+
+    def _get_best_prediction(self, invalidation=True, just_invalidation=True, prediction=True):
         # Find best prediction
-        if not(self.predictions): # This list is empty
-            raise rospy.ServiceException("self.predictions : empty list")
-        best_prediction = self.predictions[0]
-        for prediction in self.predictions:
-            if prediction.proba > best_prediction.proba:
-                best_prediction = prediction
-        self._invalidate_neighborhood(best_prediction.x, best_prediction.y)
-        self.picking_point = (best_prediction.x, best_prediction.y)
-        return GetBestPredictionResponse(best_prediction)
+        if prediction==True:
+            if not(self.predictions): # This list is empty
+                raise rospy.ServiceException("self.predictions : empty list")
+            proba = 0.5
+            while proba < 0.7:
+                self.best_prediction = self.predictions[0]
+                for prediction in self.predictions:
+                    if prediction.proba > self.best_prediction.proba:
+                        self.best_prediction = prediction
+                        proba = float(self.best_prediction.proba)
+            if invalidation==True:
+                self._invalidate_neighborhood(self.best_prediction.x, self.best_prediction.y)
+
+        if just_invalidation==True:
+            self._invalidate_neighborhood_fixed()
+
+
+
+        self.picking_point = (self.best_prediction.x, self.best_prediction.y)
+        return self.best_prediction
 
 
     def _invalidate_neighborhood(self, x, y):
         """ Invalidate (remove) all the predictions in a circle of radius INVALIDATION_RADIUS centered in (x,y)"""
         self.predictions = [pred for pred in self.predictions if math.dist((pred.x, pred.y), (x, y)) > self.invalidation_radius]
+
+    def _invalidate_neighborhood_fixed(self):
+        self.predictions = [pred for pred in self.predictions if math.dist((pred.x, pred.y), (230, 230)) > self.invalidation_radius]
 
 
 if __name__ == '__main__':
@@ -142,7 +183,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Compute a list of predictions for random points and provide the best one as a service.')
     parser.add_argument('ckpt_model_file', type=str, help='CKPT model file')
     parser.add_argument('--image_topic', type=str, default="/RGBClean", help='Topic which provides an image')
-    parser.add_argument('--invalidation_radius', type=int, default=30, help='Radius in pixels where predictions will be invalidated')
+    parser.add_argument('--invalidation_radius', type=int, default=300, help='Radius in pixels where predictions will be invalidated')
     args = parser.parse_args()
 
     try:

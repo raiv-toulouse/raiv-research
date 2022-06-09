@@ -1,2 +1,3 @@
+string mode # 'classic' or 'without_invalidation'
 ---
 Prediction pred
