@@ -75,7 +75,10 @@ class ExploreWindow(QWidget):
         self.predict_center_x = x
         self.predict_center_y = y
         image_cropped = ImageTools.crop_xy(self.image, x, y)
-        img = ImageTools.transform_image(image_cropped)  # Get the cropped transformed image
+        image_bgr = ImageTools.pil_to_numpy(image_cropped)
+        image_rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
+        image_cropped = ImageTools.numpy_to_pil(image_rgb)
+        img = ImageTools.transform_image(image_cropped)  # Get the cropped 224 transformed image
         img = img.unsqueeze(0)  # To have a 4-dim tensor ([nb_of_images, channels, w, h])
         return self.predict(img)
 
@@ -85,7 +88,11 @@ class ExploreWindow(QWidget):
                                                    options=QFileDialog.DontUseNativeDialog)
         if loaded_image[0]:
             self.image = Image.open(loaded_image[0])
-        img = ImageTools.transform_image(self.image)  # Get the loaded images, resize in 256 and transformed in tensor
+        image_bgr = ImageTools.pil_to_numpy(self.image)
+        image_rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
+        self.image = ImageTools.numpy_to_pil(image_rgb)
+
+        img = ImageTools.transform_image(self.image)  # Get the loaded images, resize in 224 and transformed in tensor
         img = img.unsqueeze(0)  # To have a 4-dim tensor ([nb_of_images, channels, w, h])
         pred = self.predict(img)
         prob, cl = self.canvas._compute_prob_and_class(pred)
