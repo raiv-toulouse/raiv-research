@@ -6,12 +6,14 @@ from raiv_research.srv import GetBestPrediction, GetBestPredictionResponse
 from raiv_research.msg import Prediction, ListOfPredictions
 from raiv_libraries.srv import get_coordservice
 from raiv_libraries.srv import PickingBoxIsEmpty, PickingBoxIsEmptyResponse
+from raiv_libraries.srv import ClearPrediction, ClearPredictionResponse
 from raiv_libraries.get_coord_node import InBoxCoord
 from PIL import Image as PILImage
 import numpy as np
 import torch
 from raiv_libraries.CNN import CNN
 from raiv_libraries.image_tools import ImageTools
+from raiv_libraries.prediction_tools import PredictTools
 from sensor_msgs.msg import Image
 import cv2
 from cv_bridge import CvBridge
@@ -50,11 +52,13 @@ class NodeBestPrediction:
         self.invalidation_radius = invalidation_radius  # When a prediction is selected, we invalidate all the previous predictions in this radius
         self.image_topic = image_topic
         self.model_name = ckpt_model_file
-        self._load_model()
+        self.model = PredictTools.load_model(self.model_name)
         self.picking_point = None # No picking point yet
+        compt = 1
         ### Appel du service emptybox
         rospy.wait_for_service('/Empty_Picking_Box')
         self.call_service = rospy.ServiceProxy('/Empty_Picking_Box', PickingBoxIsEmpty)
+        rospy.Service('Clear_Prediction', ClearPrediction, self.clear_service)
         rospy.wait_for_service('In_box_coordService')
         coord_serv = rospy.ServiceProxy('In_box_coordService', get_coordservice)
         resp = coord_serv('random', InBoxCoord.PICK, InBoxCoord.ON_OBJECT, ImageTools.CROP_WIDTH, ImageTools.CROP_HEIGHT, None, None)
@@ -66,7 +70,15 @@ class NodeBestPrediction:
             msg = Prediction()
             msg.x = resp.x_pixel
             msg.y = resp.y_pixel
-            msg.proba = self._predict(resp.x_pixel, resp.y_pixel, resp.rgb_crop)
+            image_pil = ImageTools.sensor_msg_to_pil(resp.rgb_crop)
+            rgb = ImageTools.pil_to_numpy(image_pil)
+            save_image_bgr = cv2.cvtColor(rgb, cv2.COLOR_BGR2RGB)
+            save_image = PILImage.fromarray(save_image_bgr)
+            compt = compt + 1
+            save_image.save("/common/work/stockage_image_test/test"+str(compt)+".png")
+            img = ImageTools.transform_image(image_pil)  # Get the cropped transformed image
+            img = img.unsqueeze(0)  # To have a 4-dim tensor ([nb_of_images, channels, w, h])
+            msg.proba = PredictTools.predict(self.model, img)
             self.predictions.append(msg)
             msg_list_pred.predictions = self.predictions
             pub.publish(msg_list_pred)  # Publish the current list of predictions [ [x1,y1,prediction_1], ..... ]
@@ -76,6 +88,8 @@ class NodeBestPrediction:
 
     def _continue_to_picking(self):
         picking_box_empty = self.call_service().empty_box
+        if picking_box_empty==True:
+            self.predictions = []
         return picking_box_empty
 
 
@@ -87,39 +101,32 @@ class NodeBestPrediction:
         return not (self.picking_point and math.dist((self.picking_point[0], self.picking_point[1]), (x, y)) < self.invalidation_radius)
 
 
-    def _load_model(self):
-        """
-        Load a pretrained 'resnet18' model from a CKPT filename, freezed for inference
-        """
-        self.model = CNN(backbone='resnet18')
-        self.inference_model = self.model.load_from_checkpoint(self.model_name)   #  Load the selected model
-        self.inference_model.freeze()
+    # def _load_model(self):
+    #     """
+    #     Load a pretrained 'resnet18' model from a CKPT filename, freezed for inference
+    #     """
+    #     self.model = CNN(backbone='resnet18')
+    #     self.inference_model = self.model.load_from_checkpoint(self.model_name)   #  Load the selected model
+    #     self.inference_model.freeze()
 
 
-    def _predict(self, x, y, msg_rgb_crop):
-        """ Predict probability and class for a cropped image centered at (x,y) """
-        self.predict_center_x = x
-        self.predict_center_y = y
-        #image_cropped = self.crop_xy(msg_rgb_crop, x, y)
-        image_pil = self._to_pil(msg_rgb_crop)
-        img = ImageTools.transform_image(image_pil)  # Get the cropped transformed image (size = [CROP_WIDTH,CROP_HEIGHT])
-        img = img.unsqueeze(0)  # To have a 4-dim tensor ([nb_of_images, channels, w, h])
-        _, preds = self._evaluate_image(img, self.inference_model)
-        pred = torch.exp(preds)
-        return pred[0][1].item()  # Return the success probability
+#    def _predict(self, x, y, msg_rgb_crop):
+#        """ Predict probability and class for a cropped image centered at (x,y) """
+#         self.predict_center_x = x
+#         self.predict_center_y = y
+#         image_pil = self._to_pil(msg_rgb_crop)
+#         img = ImageTools.transform_image(image_pil)  # Get the cropped transformed image (size = [CROP_WIDTH,CROP_HEIGHT])
+#         img = img.unsqueeze(0)  # To have a 4-dim tensor ([nb_of_images, channels, w, h])
+#         _, preds = self._evaluate_image(img, self.inference_model)
+#         pred = torch.exp(preds)
+#         return pred[0][1].item()  # Return the success probability
 
 
-    def crop_xy(self, msg_image, x, y):
-        """ Crop image at position (predict_center_x,predict_center_y) and with size (WIDTH,HEIGHT) """
-        pil_image = self._to_pil(msg_image)
-        return ImageTools.crop_xy(pil_image, x, y)
-
-
-    def _to_pil(self, msg):
-        """ Recover the image in the msg sensor_msgs.Image message and convert it to a PILImage"""
-        size = (msg.width, msg.height)  # Image size
-        img = PILImage.frombytes('RGB', size, msg.data)  # sensor_msg Image to PILImage
-        return img
+    # def _to_pil(self, msg):
+    #     """ Recover the image in the msg sensor_msgs.Image message and convert it to a PILImage"""
+    #     size = (msg.width, msg.height)  # Image size
+    #     img = PILImage.frombytes('RGB', size, msg.data)  # sensor_msg Image to PILImage
+    #     return img
 
     def _get_new_image(self):
         # Get a new image and publish it to the new_image topic(for node_visu_prediction.py )
@@ -136,20 +143,29 @@ class NodeBestPrediction:
         self._get_new_image()
 
         if req.mode == 'classic':
-            prediction = self._get_best_prediction()
-        elif req.mode == 'without_invalidation':
-            prediction = self._get_best_prediction(invalidation=False)
-        elif req.mode == 'just_invalidation':
-            prediction = self._get_best_prediction(prediction=False, invalidation=False)
+            precis = req.precision
+            prediction = self._get_best_prediction(high=False, manual=False)
+        elif req.mode == 'high_mode':
+            precis = req.precision
+            prediction = self._get_best_prediction(classic=False, manual=False)
+        elif req.mode == 'manual':
+            precis = req.precision
+            prediction = self._get_best_prediction(precis, classic=False, high=False)
 
         return GetBestPredictionResponse(prediction)
 
 
-    def _get_best_prediction(self, invalidation=True, just_invalidation=True, prediction=True):
+    def _get_best_prediction(self, classic=True, high=True, manual=True, precis=None):
         # Find best prediction
-        if prediction==True:
-            if not(self.predictions): # This list is empty
-                raise rospy.ServiceException("self.predictions : empty list")
+        if not(self.predictions): # This list is empty
+            raise rospy.ServiceException("self.predictions : empty list")
+        if classic==True:
+            self.best_prediction = self.predictions[0]
+            for prediction in self.predictions:
+                if prediction.proba > self.best_prediction.proba:
+                    self.best_prediction = prediction
+
+        if high==True:
             proba = 0.5
             while proba < 0.7:
                 self.best_prediction = self.predictions[0]
@@ -157,11 +173,18 @@ class NodeBestPrediction:
                     if prediction.proba > self.best_prediction.proba:
                         self.best_prediction = prediction
                         proba = float(self.best_prediction.proba)
-            if invalidation==True:
-                self._invalidate_neighborhood(self.best_prediction.x, self.best_prediction.y)
 
-        if just_invalidation==True:
-            self._invalidate_neighborhood_fixed()
+        if manual==True:
+            proba = 0
+            seuil = float(precis)
+            while proba < seuil:
+                self.best_prediction = self.predictions[0]
+                for prediction in self.predictions:
+                    if prediction.proba > self.best_prediction.proba:
+                        self.best_prediction = prediction
+                        proba = float(self.best_prediction.proba)
+
+
 
 
 
@@ -173,8 +196,14 @@ class NodeBestPrediction:
         """ Invalidate (remove) all the predictions in a circle of radius INVALIDATION_RADIUS centered in (x,y)"""
         self.predictions = [pred for pred in self.predictions if math.dist((pred.x, pred.y), (x, y)) > self.invalidation_radius]
 
-    def _invalidate_neighborhood_fixed(self):
-        self.predictions = [pred for pred in self.predictions if math.dist((pred.x, pred.y), (230, 230)) > self.invalidation_radius]
+    def clear_service(self, req):
+        self._get_new_image()
+        self.predictions = []
+        if len(self.predictions)==0:
+            flag = True
+        else:
+            flag = False
+        return ClearPredictionResponse(clear=flag)
 
 
 if __name__ == '__main__':

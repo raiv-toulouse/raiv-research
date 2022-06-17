@@ -109,7 +109,7 @@ dPoint = PerspectiveCalibration(calibration_folder)
 while True:
 
     # Get all information from the camera
-    resp_pick = coord_service('random', InBoxCoord.PICK, InBoxCoord.ON_OBJECT, ImageTools.CROP_WIDTH, ImageTools.CROP_HEIGHT, None, None)
+    resp_pick = coord_service('color', InBoxCoord.PICK, InBoxCoord.ON_OBJECT, ImageTools.CROP_WIDTH, ImageTools.CROP_HEIGHT, None, None)
     resp_place = coord_service('random', InBoxCoord.PLACE, InBoxCoord.IN_THE_BOX, ImageTools.CROP_WIDTH, ImageTools.CROP_HEIGHT, None, None)
 
     # For debug
@@ -130,7 +130,6 @@ while True:
     # Move robot to pick position
     pick_pose = xyz_to_pose(resp_pick.x_robot, resp_pick.y_robot, Z_PICK_PLACE)
     object_gripped = robot.pick(pick_pose)
-    #####object_gripped = self.check_if_object_gripped()
     # Place the object
     print(resp_place.x_pixel, 'Xplace')
     print(resp_place.y_pixel, 'Yplace')

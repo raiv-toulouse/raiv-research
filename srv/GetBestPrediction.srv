@@ -1,3 +1,4 @@
 string mode # 'classic' or 'without_invalidation'
+string precision # the value between 0 to 1 of the minimum prediction we want to choose
 ---
 Prediction pred
