@@ -51,8 +51,8 @@ class NodeBestPrediction:
         pub = rospy.Publisher('predictions', ListOfPredictions, queue_size=10)
         self.invalidation_radius = invalidation_radius  # When a prediction is selected, we invalidate all the previous predictions in this radius
         self.image_topic = image_topic
-        self.model_name = ckpt_model_file
-        self.model = PredictTools.load_model(self.model_name)
+        self.model_path = ckpt_model_file
+        self.model, self.inference_model = PredictTools.load_model(self.model_path)
         self.picking_point = None # No picking point yet
         compt = 1
         ### Appel du service emptybox
@@ -71,14 +71,22 @@ class NodeBestPrediction:
             msg.x = resp.x_pixel
             msg.y = resp.y_pixel
             image_pil = ImageTools.sensor_msg_to_pil(resp.rgb_crop)
-            rgb = ImageTools.pil_to_numpy(image_pil)
-            save_image_bgr = cv2.cvtColor(rgb, cv2.COLOR_BGR2RGB)
-            save_image = PILImage.fromarray(save_image_bgr)
-            compt = compt + 1
-            save_image.save("/common/work/stockage_image_test/test"+str(compt)+".png")
-            img = ImageTools.transform_image(image_pil)  # Get the cropped transformed image
+
+            """this couple lines serve to save the image before prediction"""
+            # save_image = PILImage.fromarray(save_image_bgr)
+            #compt = compt + 1
+            #save_image.save("/common/work/stockage_image_test/test"+str(compt)+".png")
+
+            """transformation de l'image rgb en bgr"""
+            image_rgb = ImageTools.pil_to_numpy(image_pil)
+            image_bgr = cv2.cvtColor(image_rgb, cv2.COLOR_BGR2RGB)
+            image_bgr_pil = ImageTools.numpy_to_pil(image_bgr)
+
+            img = ImageTools.transform_image(image_pil)  # Get the cropped transformed RGB image
+            #img = ImageTools.transform_image(image_bgr_pil)  # Get the cropped transformed BGR image
             img = img.unsqueeze(0)  # To have a 4-dim tensor ([nb_of_images, channels, w, h])
-            msg.proba = PredictTools.predict(self.model, img)
+            pred = PredictTools.predict(self.model, img)
+            msg.proba = PredictTools.compute_prob_and_class(pred)
             self.predictions.append(msg)
             msg_list_pred.predictions = self.predictions
             pub.publish(msg_list_pred)  # Publish the current list of predictions [ [x1,y1,prediction_1], ..... ]
@@ -99,34 +107,6 @@ class NodeBestPrediction:
         """
         # Test if inside the picking zone (so, not a good candidate)
         return not (self.picking_point and math.dist((self.picking_point[0], self.picking_point[1]), (x, y)) < self.invalidation_radius)
-
-
-    # def _load_model(self):
-    #     """
-    #     Load a pretrained 'resnet18' model from a CKPT filename, freezed for inference
-    #     """
-    #     self.model = CNN(backbone='resnet18')
-    #     self.inference_model = self.model.load_from_checkpoint(self.model_name)   #  Load the selected model
-    #     self.inference_model.freeze()
-
-
-#    def _predict(self, x, y, msg_rgb_crop):
-#        """ Predict probability and class for a cropped image centered at (x,y) """
-#         self.predict_center_x = x
-#         self.predict_center_y = y
-#         image_pil = self._to_pil(msg_rgb_crop)
-#         img = ImageTools.transform_image(image_pil)  # Get the cropped transformed image (size = [CROP_WIDTH,CROP_HEIGHT])
-#         img = img.unsqueeze(0)  # To have a 4-dim tensor ([nb_of_images, channels, w, h])
-#         _, preds = self._evaluate_image(img, self.inference_model)
-#         pred = torch.exp(preds)
-#         return pred[0][1].item()  # Return the success probability
-
-
-    # def _to_pil(self, msg):
-    #     """ Recover the image in the msg sensor_msgs.Image message and convert it to a PILImage"""
-    #     size = (msg.width, msg.height)  # Image size
-    #     img = PILImage.frombytes('RGB', size, msg.data)  # sensor_msg Image to PILImage
-    #     return img
 
     def _get_new_image(self):
         # Get a new image and publish it to the new_image topic(for node_visu_prediction.py )

@@ -3,6 +3,7 @@ from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 import torch
 from raiv_libraries.image_tools import ImageTools
+from raiv_libraries.prediction_tools import PredictTools
 
 class CanvasExplore(QWidget):
 
