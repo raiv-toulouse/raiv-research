@@ -156,7 +156,7 @@ class ExploreWindow(QWidget):
     #     return features.detach().numpy(), prediction.detach()
 
     def _set_image(self):
-        """ Get an image from topic and display it on the canvas   """
+        """ Get an image from topic and display it on the canvas """
         img, width, height = self.image_controller.get_image()
         self.canvas.set_image(img)
         self.image = img
