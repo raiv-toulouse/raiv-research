@@ -31,7 +31,7 @@ class NodeBestPrediction:
     * Publisher : publish on the 'predictions' topic a ListOfPredictions message
 
     How to run?
-    * rosrun raiv_libraries ImageProcessing_Node.py (to provide a /camera/color/image_raw topic)
+    * roslaunch realsense2_camera rs_camera.launch align_depth:=true (to provide a /camera/color/image_raw topic)
     * rosrun raiv_research node_visu_prediction.py   (to view the success/fail prediction points on the image)
     * rosrun raiv_research node_best_prediction.py CKPT_FILE --invalidation_radius INT --image_topic STR (to provide a /predictions topic)
     * rosservice call /best_prediction_service  (to get the current best prediction. It loads a new image and invalidates the points in the picking zone)
