@@ -113,7 +113,7 @@ while True:
     resp_place = coord_service('random', InBoxCoord.PLACE, InBoxCoord.IN_THE_BOX, ImageTools.CROP_WIDTH, ImageTools.CROP_HEIGHT, None, None)
 
     # For debug
-    distance = rospy.wait_for_message('/Distance_Here', Image)
+    distance = rospy.wait_for_message('/camera/aligned_depth_to_color/image_raw', Image)
     distance = bridge.imgmsg_to_cv2(distance, desired_encoding='passthrough')
 
     rgb_crop = bridge.imgmsg_to_cv2(resp_pick.rgb_crop, desired_encoding='passthrough')
