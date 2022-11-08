@@ -64,7 +64,7 @@ class ExploreWindow(QWidget):
         self.sb_threshold.valueChanged.connect(self._change_threshold)
         # attributs
         self.dPoint = PerspectiveCalibration(calibration_folder)
-        self.image_controller = SimpleImageController(image_topic='/RGBClean')
+        self.image_controller = SimpleImageController(image_topic='/camera/color/image_raw')
         self.image_model = None
         self.inference_model = None
         self.robot = None

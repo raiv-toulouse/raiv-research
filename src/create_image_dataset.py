@@ -70,7 +70,7 @@ class CreateImageDataset(QWidget):
         # Load a first image
 
         bridge = CvBridge()
-        self.image_controller = rospy.wait_for_message('/RGBClean', Image)
+        self.image_controller = rospy.wait_for_message('/camera/color/image_raw', Image)
         # self.image_controller = bridge.imgmsg_to_cv2(self.image_controller, desired_encoding = 'passthrough')
         print(self.image_controller)
         print('Printing image from RGBClean done')
@@ -111,7 +111,7 @@ class CreateImageDataset(QWidget):
         self.robot.go_to_xyz_position(X_OUT, Y_OUT, Z_OUT) # Send robot out of camera scope
         # A PerspectiveCalibration object to perform 2D => 3D conversion
         self.dPoint = PerspectiveCalibration(self.calibration_folder)
-        self.canvas.set_image(rospy.wait_for_message('/RGBClean', Image))
+        self.canvas.set_image(rospy.wait_for_message('/camera/color/image_raw', Image))
 
 
     #
@@ -146,7 +146,7 @@ class CreateImageDataset(QWidget):
         resp = self.coord_service('fixed', InBoxCoord.PICK, InBoxCoord.IN_THE_BOX, CROP_WIDTH, CROP_HEIGHT, px, py)
         self.rgb = resp.rgb_crop
         self.depth = resp.depth_crop
-        self.canvas.set_image(rospy.wait_for_message('/RGBClean', Image))
+        self.canvas.set_image(rospy.wait_for_message('/camera/color/image_raw', Image))
         self.depth = bridge.imgmsg_to_cv2(self.depth, desired_encoding='passthrough')
         self._histeq()
 

@@ -5,7 +5,7 @@
 <!--   </include> -->
   <node name="best_prediction" pkg="raiv_research" type="node_best_prediction.py">
     <param name="invalidation_radius" value="150"/>  <!-- radius to invalidate the predictions (in pixel) -->
-    <param name="image_topic" value="/RGBClean"/>
+    <param name="image_topic" value="/camera/color/image_raw"/>
     <param name="crop_width" value="50"/>  <!-- size of cropped image -->
     <param name="crop_height" value="50"/>
     <param name="model_name" value="/common/model_trained/Test_banque.ckpt"/>

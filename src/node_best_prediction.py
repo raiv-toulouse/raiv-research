@@ -20,7 +20,7 @@ from cv_bridge import CvBridge
 import time
 
 
-IMAGE_TOPIC = "/RGBClean"
+IMAGE_TOPIC = "/camera/color/image_raw"
 THRESHOLD_ABOVE_TABLE = 10
 
 class NodeBestPrediction:
@@ -31,7 +31,7 @@ class NodeBestPrediction:
     * Publisher : publish on the 'predictions' topic a ListOfPredictions message
 
     How to run?
-    * rosrun raiv_libraries ImageProcessing_Node.py (to provide a /RGBClean topic)
+    * rosrun raiv_libraries ImageProcessing_Node.py (to provide a /camera/color/image_raw topic)
     * rosrun raiv_research node_visu_prediction.py   (to view the success/fail prediction points on the image)
     * rosrun raiv_research node_best_prediction.py CKPT_FILE --invalidation_radius INT --image_topic STR (to provide a /predictions topic)
     * rosservice call /best_prediction_service  (to get the current best prediction. It loads a new image and invalidates the points in the picking zone)
@@ -191,7 +191,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Compute a list of predictions for random points and provide the best one as a service.')
     parser.add_argument('ckpt_model_file', type=str, help='CKPT model file')
-    parser.add_argument('--image_topic', type=str, default="/RGBClean", help='Topic which provides an image')
+    parser.add_argument('--image_topic', type=str, default="/camera/color/image_raw", help='Topic which provides an image')
     parser.add_argument('--invalidation_radius', type=int, default=300, help='Radius in pixels where predictions will be invalidated')
     args = parser.parse_args()
 
