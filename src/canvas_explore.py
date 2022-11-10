@@ -29,6 +29,7 @@ class CanvasExplore(QWidget):
             self.center = event.pos()
             if modifiers == Qt.ControlModifier:  # Ctrl + left click
                 self.parent.ask_robot_to_pick(pos.x(), pos.y())
+                self.parent.move_robot()
             else:  # Only left button click
                 if self.previous_image:  # A new click, we restore the previous image without the rectangle
                     self.image = self.previous_image

@@ -59,7 +59,7 @@ class ExploreWindow(QWidget):
         # event handlers
         self.btn_load_model.clicked.connect(self._load_model)
         self.btn_load_images.clicked.connect(self.predict_from_image)
-        self.btn_change_image.clicked.connect(self._move_robot)
+        self.btn_change_image.clicked.connect(self.move_robot)
         self.btn_activate_robot.clicked.connect(self._activate_robot)
         self.sb_threshold.valueChanged.connect(self._change_threshold)
         # attributs
@@ -145,7 +145,7 @@ class ExploreWindow(QWidget):
         self.robot = Robot_with_vaccum_gripper()
         self.btn_change_image.setEnabled(True)
 
-    def _move_robot(self):
+    def move_robot(self):
         """  Move robot out of camera scope then get and display a new image """
         self.robot.go_to_xyz_position(X_OUT, Y_OUT, Z_OUT)
         self._set_image()
