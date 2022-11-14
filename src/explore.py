@@ -90,15 +90,15 @@ class ExploreWindow(QWidget):
                                                    options=QFileDialog.DontUseNativeDialog)
         if loaded_image[0]:
             self.image = Image.open(loaded_image[0])
-        image_bgr = ImageTools.pil_to_numpy(self.image)
-        image_rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
-        self.image = ImageTools.numpy_to_pil(image_rgb)
-        img = ImageTools.transform_image(self.image)  # Get the loaded images, resize in 224 and transformed in tensor
-        img = img.unsqueeze(0)  # To have a 4-dim tensor ([nb_of_images, channels, w, h])
-        pred = self.predict(img)
-        prob, cl = self.canvas._compute_prob_and_class(pred)
-        self.prediction_from_image.setText("La prédiction de l'image chargé est : " + str(prob) + " %")
-        print(prob)
+            image_bgr = ImageTools.pil_to_numpy(self.image)
+            image_rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
+            self.image = ImageTools.numpy_to_pil(image_rgb)
+            img = ImageTools.transform_image(self.image)  # Get the loaded images, resize in 224 and transformed in tensor
+            img = img.unsqueeze(0)  # To have a 4-dim tensor ([nb_of_images, channels, w, h])
+            pred = self.predict(img)
+            prob, cl = self.canvas._compute_prob_and_class(pred)
+            self.prediction_from_image.setText("La prédiction de l'image chargé est : " + str(prob) + " %")
+            print(prob)
 
     def predict(self, img):
         pred = PredictTools.predict(self.image_model, img)
