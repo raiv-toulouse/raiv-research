@@ -13,9 +13,11 @@ import math
 class PredictOnImageFilesWindow(QtWidgets.QMainWindow):
     def __init__(self, parent=None):
         super(PredictOnImageFilesWindow, self).__init__(parent)
-        self.dir = QFileDialog.getExistingDirectory(self, "Select an image folder", "/common/work/stockage_banque_image/0_5_soufflet/2022_11_09/rgb/success", QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks)
-
-        fname = QFileDialog.getOpenFileName(self, 'Open CKPT model file', '/common/work/model_trained/RGB/resnet18', "Model files (*.ckpt)",
+        self.dir = QFileDialog.getExistingDirectory(self, "Select an image folder", "/common/work/stockage_banque_image", QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks)
+        print(self.dir)
+        self.is_success_dir = self.dir.endswith('success')
+        print(self.is_success_dir)
+        fname = QFileDialog.getOpenFileName(self, 'Open CKPT model file', '/common/work/model_trained', "Model files (*.ckpt)",
                                             options=QFileDialog.DontUseNativeDialog)
         self.wrong = self.total = 0
         self.image_model, self.inference_model = PredictTools.load_model(fname[0])  # Load the selected models
@@ -71,7 +73,7 @@ class PredictOnImageFilesWindow(QtWidgets.QMainWindow):
             ch = f"{prob}%, file = {file_name}"
             label_text = QtWidgets.QLabel(ch)
             self.total += 1
-            if prob < 50: # Fail
+            if (prob < 50 and self.is_success_dir) or (prob >= 50 and not self.is_success_dir): # wrong prediction
                 label_text.setStyleSheet("QLabel { background-color : red; }")
                 self.wrong += 1
             hBox = QtWidgets.QHBoxLayout()
