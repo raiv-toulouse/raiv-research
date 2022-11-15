@@ -9,27 +9,28 @@ import cv2
 import torch
 import math
 
+"""
+Display a Qt window with images from a folder with their prediction from a model.
+Highlight in red the wrong prediction (error of the model)
+"""
+
+SUCCESS_THRESHOLD = 50 # A success if prediction > threshold
 
 class PredictOnImageFilesWindow(QtWidgets.QMainWindow):
     def __init__(self, parent=None):
         super(PredictOnImageFilesWindow, self).__init__(parent)
         self.dir = QFileDialog.getExistingDirectory(self, "Select an image folder", "/common/work/stockage_banque_image", QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks)
-        print(self.dir)
         self.is_success_dir = self.dir.endswith('success')
-        print(self.is_success_dir)
         fname = QFileDialog.getOpenFileName(self, 'Open CKPT model file', '/common/work/model_trained', "Model files (*.ckpt)",
                                             options=QFileDialog.DontUseNativeDialog)
         self.wrong = self.total = 0
         self.image_model, self.inference_model = PredictTools.load_model(fname[0])  # Load the selected models
-
         self.scrollArea = QtWidgets.QScrollArea(widgetResizable=True)
         self.setCentralWidget(self.scrollArea)
         content_widget = QtWidgets.QWidget()
         self.scrollArea.setWidget(content_widget)
         self._lay = QtWidgets.QVBoxLayout(content_widget)
-
         self.file_names_it = iter([file for file in os.listdir(self.dir)])
-
         self._timer = QtCore.QTimer(self, interval=1)
         self._timer.timeout.connect(self.on_timeout)
         self._timer.start()
@@ -49,9 +50,6 @@ class PredictOnImageFilesWindow(QtWidgets.QMainWindow):
 
     def compute_prediction(self, file):
         image = Image.open(file)
-        image_bgr = ImageTools.pil_to_numpy(image)
-        image_rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
-        image = ImageTools.numpy_to_pil(image_rgb)
         img = ImageTools.transform_image(image)  # Get the loaded images, resize in 224 and transformed in tensor
         img = img.unsqueeze(0)  # To have a 4-dim tensor ([nb_of_images, channels, w, h])
         pred = PredictTools.predict(self.image_model, img)
