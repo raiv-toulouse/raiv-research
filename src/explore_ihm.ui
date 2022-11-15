@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1587</width>
-    <height>978</height>
+    <width>858</width>
+    <height>496</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -18,8 +18,14 @@
     <widget class="CanvasExplore" name="canvas" native="true">
      <property name="minimumSize">
       <size>
-       <width>1280</width>
-       <height>960</height>
+       <width>640</width>
+       <height>480</height>
+      </size>
+     </property>
+     <property name="maximumSize">
+      <size>
+       <width>640</width>
+       <height>480</height>
       </size>
      </property>
     </widget>
@@ -113,19 +119,6 @@
         <string>TextLabel</string>
        </property>
       </widget>
-     </item>
-     <item>
-      <spacer name="verticalSpacer">
-       <property name="orientation">
-        <enum>Qt::Vertical</enum>
-       </property>
-       <property name="sizeHint" stdset="0">
-        <size>
-         <width>20</width>
-         <height>40</height>
-        </size>
-       </property>
-      </spacer>
      </item>
     </layout>
    </item>
