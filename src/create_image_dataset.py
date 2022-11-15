@@ -103,9 +103,9 @@ class CreateImageDataset(QWidget):
         print(Path(sys.argv[0]))
         print(self.image_folder)
         self.parent_image_folder = Path(self.image_folder)
-        for sf_folder in ['success', 'fail']:
-            for rd_folder in ['rgb', 'depth']:
-                folder = self.parent_image_folder / sf_folder / rd_folder
+        for rd_folder in ['rgb', 'depth']:
+            for sf_folder in ['success', 'fail']:
+                folder = self.parent_image_folder / rd_folder / sf_folder
                 Path.mkdir(folder, parents=True, exist_ok=True)
         self.robot = Robot_with_vaccum_gripper()
         self.robot.go_to_xyz_position(X_OUT, Y_OUT, Z_OUT) # Send robot out of camera scope
