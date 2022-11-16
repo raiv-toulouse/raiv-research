@@ -82,12 +82,12 @@ if not calibration_folder.exists():
     print("This folder doesn't exist : {}".format(sys.argv[2]))
     exit(2)
 
-# Create, if they don't exist, <images_folder>/success/rgb, <images_folder>/success/depth,
-# <images_folder>/fail/rgb and <images_folder>/fail/depth folders
+# Create, if they don't exist, <images_folder>/rgb/success, <images_folder>/depth/success,
+# <images_folder>/rgb/fail and <images_folder>/depth/fail folders
 parent_image_folder = Path(sys.argv[1])
 
-for sf_folder in ['success', 'fail']:
-    for rd_folder in ['rgb', 'depth']:
+for rd_folder in ['rgb', 'depth']:
+    for sf_folder in ['success', 'fail']:
         folder = parent_image_folder / rd_folder / sf_folder
         Path.mkdir(folder, parents=True, exist_ok=True)
         folder.chmod(0o777)  # Write permission for everybody
