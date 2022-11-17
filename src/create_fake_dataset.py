@@ -34,8 +34,7 @@ import os
 #
 # Constants
 #
-CROP_WIDTH = 25 # Width and height for rgb and depth cropped images
-CROP_HEIGHT = 25
+
 Z_PICK_PLACE = 0.1  # Z coord to start pick or place movement
 X_OUT = 0.0  # XYZ coord where the robot is out of camera scope
 Y_OUT = -0.3
@@ -98,7 +97,7 @@ class CreateFakeDataset(QWidget):
     def _set_image(self, px, py):
         bridge = CvBridge()
         """ Get an image from service and display it on the canvas """
-        resp = self.coord_service('fixed', InBoxCoord.PICK, InBoxCoord.IN_THE_BOX, CROP_WIDTH, CROP_HEIGHT, px, py)
+        resp = self.coord_service('fixed', InBoxCoord.PICK, InBoxCoord.IN_THE_BOX, InBoxCoord.CROP_WIDTH, InBoxCoord.CROP_HEIGHT, px, py)
         self.rgb = resp.rgb_crop
         self.depth = resp.depth_crop
         self.canvas.set_image(rospy.wait_for_message('/camera/color/image_raw', Image))
