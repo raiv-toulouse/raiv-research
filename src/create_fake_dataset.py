@@ -21,12 +21,11 @@ from datetime import datetime
 from pathlib import Path
 import sys
 import cv2
-
 from raiv_libraries.get_coord_node import InBoxCoord
+from raiv_libraries import tools
 from sensor_msgs.msg import Image
 from raiv_libraries.srv import get_coordservice
 from cv_bridge import CvBridge
-import geometry_msgs.msg as geometry_msgs
 from PyQt5.QtWidgets import *
 from PyQt5 import uic
 import os
@@ -34,7 +33,6 @@ import os
 #
 # Constants
 #
-
 Z_PICK_PLACE = 0.1  # Z coord to start pick or place movement
 X_OUT = 0.0  # XYZ coord where the robot is out of camera scope
 Y_OUT = -0.3
@@ -72,11 +70,8 @@ class CreateFakeDataset(QWidget):
         dir = QFileDialog.getExistingDirectory(self, "Select image directory", "/common/work/stockage_banque_image/0_5_soufflet", QFileDialog.ShowDirsOnly)
         if dir:
             self.image_folder = Path(dir)
+            tools.create_rgb_depth_folders(self.image_folder)
             self.lbl_image_folder.setText(str(self.image_folder))
-            for rd_folder in ['rgb', 'depth']:
-                for sf_folder in ['success', 'fail']:
-                    folder = self.image_folder / rd_folder / sf_folder
-                    Path.mkdir(folder, parents=True, exist_ok=True)
 
     #
     # Public method

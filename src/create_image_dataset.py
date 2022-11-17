@@ -23,6 +23,7 @@ import sys
 import cv2
 from raiv_camera_calibration.perspective_calibration import PerspectiveCalibration
 from raiv_libraries.get_coord_node import InBoxCoord
+from raiv_libraries import tools
 from raiv_libraries.robot_with_vaccum_gripper import Robot_with_vaccum_gripper
 from raiv_libraries.srv import get_coordservice
 from raiv_libraries.robotUR import RobotUR
@@ -61,18 +62,12 @@ class CreateImageDataset(QWidget):
         self.robot = None
         self.calibration_folder = None
         self.image_folder = None
-
+        # Define service
         coord_service_name = 'In_box_coordService'
         rospy.wait_for_service(coord_service_name)
         self.coord_service = rospy.ServiceProxy(coord_service_name, get_coordservice)
-
         # Load a first image
-
-        bridge = CvBridge()
         self.image_controller = rospy.wait_for_message('/camera/color/image_raw', Image)
-        # self.image_controller = bridge.imgmsg_to_cv2(self.image_controller, desired_encoding = 'passthrough')
-        print(self.image_controller)
-        print('Printing image from RGBClean done')
         self.canvas.set_image(self.image_controller)
 
     #
@@ -83,14 +78,14 @@ class CreateImageDataset(QWidget):
             self.btn_launch_robot.setEnabled(True)
 
     def _select_calibration_folder(self):
-        dir = QFileDialog.getExistingDirectory(self, "Select camera calibration directory", ".",QFileDialog.ShowDirsOnly)
+        dir = QFileDialog.getExistingDirectory(self, "Select camera calibration directory", ".", QFileDialog.ShowDirsOnly)
         if dir:
             self.calibration_folder = Path(dir)
             self.lbl_calibration_folder.setText(str(self.calibration_folder))
             self._enable_robot_button()
 
     def _select_image_folder(self):
-        dir = QFileDialog.getExistingDirectory(self, "Select image directory", ".",QFileDialog.ShowDirsOnly)
+        dir = QFileDialog.getExistingDirectory(self, "Select image directory", ".", QFileDialog.ShowDirsOnly)
         if dir:
             self.image_folder = Path(dir)
             self.lbl_image_folder.setText(str(self.image_folder))
@@ -98,26 +93,20 @@ class CreateImageDataset(QWidget):
 
     def _launch_robot(self):
         # Create, if they don't exist, <images_folder>/success/rgb, <images_folder>/success/depth,  <images_folder>/fail/rgb and <images_folder>/fail/depth folders
-        print(sys.argv)
-        print(Path(sys.argv[0]))
-        print(self.image_folder)
         self.parent_image_folder = Path(self.image_folder)
-        for rd_folder in ['rgb', 'depth']:
-            for sf_folder in ['success', 'fail']:
-                folder = self.parent_image_folder / rd_folder / sf_folder
-                Path.mkdir(folder, parents=True, exist_ok=True)
+        tools.create_rgb_depth_folders(self.parent_image_folder)
+        # Define robot and send it out of camera scope
         self.robot = Robot_with_vaccum_gripper()
-        self.robot.go_to_xyz_position(X_OUT, Y_OUT, Z_OUT) # Send robot out of camera scope
+        self.robot.go_to_xyz_position(X_OUT, Y_OUT, Z_OUT)
         # A PerspectiveCalibration object to perform 2D => 3D conversion
         self.dPoint = PerspectiveCalibration(self.calibration_folder)
         self.canvas.set_image(rospy.wait_for_message('/camera/color/image_raw', Image))
-
 
     #
     # Public method
     #
     def process_click(self, px, py):
-        """ send the robot to this (px, py) position and store the image file in the good folder (success or fail) """
+        """ send the robot to this (px, py) position and store the image file in the right folder (success or fail) """
         self._set_image(px,py)
         # Move robot to pick position
         pick_pose = self._pixel_to_pose(px, py)
@@ -125,7 +114,6 @@ class CreateImageDataset(QWidget):
         # If an object is gripped
         if object_gripped:
             # Place the object
-            print('Gripped')
             self.robot.place(PLACE_POSE)
             self._save_images('success')  # Save images in success folders
         else:
