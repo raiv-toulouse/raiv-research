@@ -70,7 +70,7 @@ class NodeBestPrediction:
             msg = Prediction()
             msg.x = resp.x_pixel
             msg.y = resp.y_pixel
-            image_pil = ImageTools.sensor_msg_to_pil(resp.rgb_crop)
+            image_pil = ImageTools.ros_msg_to_pil(resp.rgb_crop)
 
             """this couple lines serve to save the image before prediction"""
             # save_image = PILImage.fromarray(save_image_bgr)
