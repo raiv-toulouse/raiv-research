@@ -94,7 +94,7 @@ while True:
 
     # Get all information from the camera
     resp_pick = coord_service('random', InBoxCoord.PICK, InBoxCoord.ON_OBJECT, BIG_CROP_WIDTH, BIG_CROP_HEIGHT, None, None)
-    resp_place = coord_service('random', InBoxCoord.PLACE, InBoxCoord.IN_THE_BOX, ImageTools.BIG_CROP_WIDTH, ImageTools.BIG_CROP_HEIGHT, None, None)
+    resp_place = coord_service('random', InBoxCoord.PLACE, InBoxCoord.IN_THE_BOX, ImageTools.CROP_WIDTH, ImageTools.CROP_HEIGHT, None, None)
 
     # For debug
     distance = rospy.wait_for_message('/camera/aligned_depth_to_color/image_raw', Image)
@@ -142,8 +142,8 @@ while True:
 
     # Generate a set of images with rotation transform
     for deg in range(0, 360, 10):
-        rgb_images_pil.append(ImageTools.center_crop(pil_rgb.rotate(deg), ImageTools.BIG_CROP_WIDTH, ImageTools.BIG_CROP_HEIGHT))
-        depth_images_pil.append(ImageTools.center_crop(pil_depth.rotate(deg), ImageTools.BIG_CROP_WIDTH, ImageTools.BIG_CROP_HEIGHT))
+        rgb_images_pil.append(ImageTools.center_crop(pil_rgb.rotate(deg), ImageTools.CROP_WIDTH, ImageTools.CROP_HEIGHT))
+        depth_images_pil.append(ImageTools.center_crop(pil_depth.rotate(deg), ImageTools.CROP_WIDTH, ImageTools.CROP_HEIGHT))
 
     tools.save_images(parent_image_folder, 'success' if object_gripped else 'fail', rgb_images_pil, depth_images_pil) # Save images in success folders
 

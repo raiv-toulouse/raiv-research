@@ -56,8 +56,8 @@ class NodeBestPrediction:
         self.picking_point = None # No picking point yet
         compt = 1
         ### Appel du service emptybox
-        rospy.wait_for_service('/Empty_Picking_Box')
-        self.call_service = rospy.ServiceProxy('/Empty_Picking_Box', PickingBoxIsEmpty)
+        rospy.wait_for_service('/Is_Picking_Box_Empty')
+        self.call_service = rospy.ServiceProxy('/Is_Picking_Box_Empty', PickingBoxIsEmpty)
         rospy.Service('Clear_Prediction', ClearPrediction, self.clear_service)
         rospy.wait_for_service('In_box_coordService')
         coord_serv = rospy.ServiceProxy('In_box_coordService', get_coordservice)
