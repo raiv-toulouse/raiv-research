@@ -75,7 +75,7 @@ class ExploreWindow(QWidget):
         """ Predict probability and class for a cropped image at (x,y) """
         self.predict_center_x = x
         self.predict_center_y = y
-        rgb_crop_pil = ImageTools.crop_xy(self.image, x, y)
+        rgb_crop_pil = ImageTools.crop_xy(self.image, x, y, ImageTools.CROP_WIDTH, ImageTools.CROP_HEIGHT)
         img = ImageTools.transform_image(rgb_crop_pil)  # Get the cropped 224 transformed image for rgb model
         img = img.unsqueeze(0)  # To have a 4-dim tensor ([nb_of_images, channels, w, h])
         return self.predict(img)
