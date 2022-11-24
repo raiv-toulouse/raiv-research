@@ -22,9 +22,10 @@ from pathlib import Path
 import sys
 import cv2
 from raiv_camera_calibration.perspective_calibration import PerspectiveCalibration
-from raiv_libraries.get_coord_node import InBoxCoord
 from raiv_libraries import tools
 from raiv_libraries.robot_with_vaccum_gripper import Robot_with_vaccum_gripper
+
+from raiv_libraries.image_tools import ImageTools
 from raiv_libraries.srv import get_coordservice
 from raiv_libraries.robotUR import RobotUR
 from sensor_msgs.msg import Image
@@ -130,7 +131,7 @@ class CreateImageDataset(QWidget):
     def _set_image(self, px, py):
         bridge = CvBridge()
         """ Get an image from service and display it on the canvas """
-        resp = self.coord_service('fixed', InBoxCoord.PICK, InBoxCoord.IN_THE_BOX, InBoxCoord.CROP_WIDTH, InBoxCoord.CROP_HEIGHT, px, py)
+        resp = self.coord_service('fixed', ImageTools.PICK, ImageTools.IN_THE_BOX, ImageTools.CROP_WIDTH, ImageTools.CROP_HEIGHT, px, py)
         self.rgb = resp.rgb_crop
         self.depth = resp.depth_crop
         self.canvas.set_image(rospy.wait_for_message('/camera/color/image_raw', Image))
