@@ -54,7 +54,7 @@ if __name__=="__main__":
     x, y, z = dPoint.from_2d_to_3d(coord_pixel)
     pose_for_pick = geometry_msgs.Pose(geometry_msgs.Vector3(x, y, Z_PICK_ROBOT), RobotUR.tool_down_pose)
     object_gripped = robot.pick(pose_for_pick)
-    object_gripped = robot.object_gripped()
+    object_gripped = robot.check_if_object_gripped()
 
 
     while True:
@@ -82,7 +82,7 @@ if __name__=="__main__":
         x, y, z = dPoint.from_2d_to_3d(coord_pixel)
         pose_for_pick = geometry_msgs.Pose(geometry_msgs.Vector3(x, y, Z_PICK_ROBOT), RobotUR.tool_down_pose)
         object_gripped = robot.pick(pose_for_pick)
-        object_gripped = robot.object_gripped()
+        object_gripped = robot.check_if_object_gripped()
 
 
 

@@ -69,7 +69,7 @@ if __name__=="__main__":
             geometry_msgs.Vector3(x, y, Z_PICK_ROBOT), RobotUR.tool_down_pose
         )
         object_gripped = robot.pick(pose_for_pick)
-        object_gripped = robot.object_gripped()
+        object_gripped = robot.check_if_object_gripped()
         if object_gripped:
             # Place the object
             place_pose = xyz_to_pose(resp_place.x_robot, resp_place.y_robot, Z_PICK_PLACE)
