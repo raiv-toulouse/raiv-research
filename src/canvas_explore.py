@@ -105,20 +105,22 @@ class CanvasExplore(QWidget):
         """ Display all predictions (green/red point + percentage of success) from self.all_preds list """
         threshold = self.parent.sb_threshold.value()
         self.all_preds.sort(key=lambda pred: pred[2][0][1].item(), reverse=True)
+        point_size_in_pixel = 4
         for idx, (x, y , pred) in enumerate(self.all_preds):
             tensor_prob,tensor_cl = torch.max(pred, 1)
             if tensor_cl.item()==0 or (tensor_cl.item()==1 and tensor_prob.item()*100 < threshold):  # Fail
-                qp.setPen(QPen(Qt.red, 5)) # Prediction under the threshold
+                qp.setPen(QPen(Qt.red, point_size_in_pixel)) # Prediction under the threshold
             else:
-                qp.setPen(QPen(Qt.green, 5))# Prediction above the threshold
+                qp.setPen(QPen(Qt.green, point_size_in_pixel))# Prediction above the threshold
             if idx == 0:
-                qp.setPen(QPen(Qt.blue, 5))  # The best prediction
+                qp.setPen(QPen(Qt.blue, point_size_in_pixel))  # The best prediction
             qp.drawPoint(x, y)
             qp.setPen(Qt.black)
-            qp.setFont(QFont('Decorative', 8))
             prob, cl = self._compute_prob_and_class(pred)
-            text = f'{prob:.1f}%'
-            qp.drawText(x, y, text)
+            if self.parent.cb_print_values.isChecked():
+                qp.setFont(QFont('Decorative', 8))
+                text = f'{prob:.1f}%'
+                qp.drawText(x, y, text)
 
     def _compute_prob_and_class(self, pred):
         """ Retrieve class (success or fail) and its associated percentage from pred """

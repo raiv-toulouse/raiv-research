@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>858</width>
-    <height>496</height>
+    <width>886</width>
+    <height>498</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -42,7 +42,7 @@
      <item>
       <widget class="QPushButton" name="btn_load_images">
        <property name="text">
-        <string>Load images</string>
+        <string>Load image for prediction</string>
        </property>
       </widget>
      </item>
@@ -50,6 +50,13 @@
       <widget class="QLabel" name="lbl_model_name">
        <property name="text">
         <string/>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="btn_update_image">
+       <property name="text">
+        <string>Update image</string>
        </property>
       </widget>
      </item>
@@ -89,6 +96,16 @@
       </layout>
      </item>
      <item>
+      <widget class="QCheckBox" name="cb_print_values">
+       <property name="text">
+        <string>Print values</string>
+       </property>
+       <property name="checked">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </item>
+     <item>
       <layout class="QHBoxLayout" name="horizontalLayout_3">
        <item>
         <widget class="QLabel" name="label_2">
@@ -110,13 +127,6 @@
       <widget class="QLabel" name="lbl_result_map">
        <property name="text">
         <string/>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QLabel" name="prediction_from_image">
-       <property name="text">
-        <string>TextLabel</string>
        </property>
       </widget>
      </item>

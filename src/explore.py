@@ -19,6 +19,8 @@ import geometry_msgs.msg as geometry_msgs
 from raiv_libraries.image_tools import ImageTools
 from PIL import Image
 from raiv_libraries.prediction_tools import PredictTools
+from PyQt5.QtWidgets import QMessageBox
+
 
 # global variables
 Z_PICK_ROBOT = 0.15  # Z coord before going down to pick
@@ -59,6 +61,7 @@ class ExploreWindow(QWidget):
         # event handlers
         self.btn_load_model.clicked.connect(self._load_model)
         self.btn_load_images.clicked.connect(self.predict_from_image)
+        self.btn_update_image.clicked.connect(self._set_image)
         self.btn_change_image.clicked.connect(self.move_robot)
         self.btn_activate_robot.clicked.connect(self._activate_robot)
         self.sb_threshold.valueChanged.connect(self._change_threshold)
@@ -76,18 +79,17 @@ class ExploreWindow(QWidget):
         self.predict_center_x = x
         self.predict_center_y = y
         rgb_crop_pil = ImageTools.crop_xy(self.image, x, y, ImageTools.CROP_WIDTH, ImageTools.CROP_HEIGHT)
-        rgb_crop_pil.save('/home/phil/images/test.png')
         return PredictTools.predict_from_pil_rgb_image(self.image_model, rgb_crop_pil)
 
     def predict_from_image(self):
         """ Load the images data """
-        loaded_image = QFileDialog.getOpenFileName(self, 'Open image', '.', "Model files (*.png)",
+        loaded_image = QFileDialog.getOpenFileName(self, 'Open image', '.', "Image files (*.png)",
                                                    options=QFileDialog.DontUseNativeDialog)
         if loaded_image[0]:
             image_pil = Image.open(loaded_image[0])
             pred = PredictTools.predict_from_pil_rgb_image(self.image_model, image_pil)
             prob, cl = self.canvas._compute_prob_and_class(pred)
-            self.prediction_from_image.setText("La prédiction de l'image chargé est : " + str(prob) + " %")
+            self.lbl_result_map.setText(f"The prediction for this image is : {prob:.2f}%" )
             print(prob)
 
     def compute_map(self, start_coord, end_coord):
@@ -133,8 +135,11 @@ class ExploreWindow(QWidget):
 
     def move_robot(self):
         """  Move robot out of camera scope then get and display a new image """
-        self.robot.go_to_xyz_position(X_OUT, Y_OUT, Z_OUT)
-        self._set_image()
+        if self.robot:
+            self.robot.go_to_xyz_position(X_OUT, Y_OUT, Z_OUT)
+            self._set_image()
+        else:
+            QMessageBox.warning(self, "No robot", "Don't forget to initialize the robot")
 
     # @torch.no_grad()
     # def _evaluate_image(self, image):
@@ -152,9 +157,6 @@ class ExploreWindow(QWidget):
         [ [x, y, tensor([[prob_fail, proba_success]])], ...] with x,y the center of cropped image size (WIDTH,HEIGHT)
         """
         start = time.time()
-        fichier = open('/common/predictions_explore.txt', 'w')
-        txt = 'Prédictions de explore.py'
-        fichier.write(txt.center(20,'*'))
         all_preds = []
         steps = int(self.edt_nb_pixels_per_step.text())
         count = 0
@@ -162,15 +164,8 @@ class ExploreWindow(QWidget):
             for y in range(start_coord.y(), end_coord.y(), steps):
                 preds = self.predict_from_point(x, y)
                 all_preds.append([x, y, preds])
-                texte = '\n' + str(x) + ', ' + str(y) + ', ' + str(preds[0][1].item())
-                fichier.write(texte)
                 count += 1
         end = time.time()
-        testimg = self.image
-        imgArray = np.asarray(testimg)
-        img_rgb = cv2.cvtColor(imgArray, cv2.COLOR_RGB2BGR)
-        cv2.imwrite('/common/image_predictions.jpg', img_rgb)
-        fichier.close()
         self.lbl_result_map.setText(f'{count} inferences in {end - start:.1f} s')
         return all_preds
 
