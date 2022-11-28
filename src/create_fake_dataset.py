@@ -23,6 +23,8 @@ import sys
 import cv2
 from raiv_libraries import tools
 from raiv_libraries.image_tools import ImageTools
+
+from raiv_libraries.get_coord_node import InBoxCoord
 from sensor_msgs.msg import Image
 from raiv_libraries.srv import get_coordservice
 from cv_bridge import CvBridge
@@ -67,7 +69,8 @@ class CreateFakeDataset(QWidget):
     #
 
     def _select_image_folder(self):
-        dir = QFileDialog.getExistingDirectory(self, "Select image directory", "/common/work/stockage_banque_image/0_5_soufflet", QFileDialog.ShowDirsOnly)
+#        dir = QFileDialog.getExistingDirectory(self, "Select image directory", "/common/work/stockage_banque_image/0_5_soufflet", QFileDialog.ShowDirsOnly)
+        dir = '/common/work/stockage_banque_image/0_5_soufflet/1_cylinder_fake'
         if dir:
             self.image_folder = Path(dir)
             tools.create_rgb_depth_folders(self.image_folder)
@@ -78,36 +81,20 @@ class CreateFakeDataset(QWidget):
     #
     def process_click(self, px, py):
         """ store the image file in the good folder (success or fail) """
-        self._set_image(px,py)
-        # If an object is gripped
-        if self.rb_success.isChecked():
-            # Place the object
-            self._save_images('success')  # Save images in success folders
-        else:
-            self._save_images('fail')  # Save images in fail folders
+        resp = self._set_image(px,py)
+        tools.generate_and_save_rgb_depth_images(resp, self.image_folder,self.rb_success.isChecked())
+
 
     #
     # Private methods
     #
     def _set_image(self, px, py):
-        bridge = CvBridge()
         """ Get an image from service and display it on the canvas """
-        resp = self.coord_service('fixed', ImageTools.PICK, ImageTools.IN_THE_BOX, ImageTools.CROP_WIDTH, ImageTools.CROP_HEIGHT, px, py)
-        self.rgb = resp.rgb_crop
-        self.depth = resp.depth_crop
+        resp = self.coord_service('fixed', InBoxCoord.PICK, InBoxCoord.IN_THE_BOX, tools.BIG_CROP_WIDTH, tools.BIG_CROP_HEIGHT, px, py)
         self.canvas.set_image(rospy.wait_for_message('/camera/color/image_raw', Image))
+        return resp
 
-    def _save_images(self, folder):
-        image_name = str(datetime.now()) + '.png'
-        bridge = CvBridge()
-        for image_type, image in zip(['rgb', 'depth'], [self.rgb, self.depth]):
-            image_path = (self.image_folder / image_type / folder).resolve()
-            os.chdir(image_path)
-            image = bridge.imgmsg_to_cv2(image, desired_encoding = 'passthrough')
-            cv2.imwrite(image_name, image)
-            image_path.chmod(0o777)  # Write permission for everybody
 
-#
 # Main program
 #
 if __name__ == '__main__':

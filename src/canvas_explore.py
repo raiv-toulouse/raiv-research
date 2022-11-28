@@ -71,6 +71,7 @@ class CanvasExplore(QWidget):
             self._draw_pred(qp)
         if self.select_end:
             self._draw_selected_region(qp)
+        qp.end()
 
     def _draw_selected_region(self, qp):
         qp.setRenderHint(QPainter.Antialiasing)

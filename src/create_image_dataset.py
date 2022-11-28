@@ -146,28 +146,28 @@ class CreateImageDataset(QWidget):
             geometry_msgs.Vector3(x, y, Z_PICK_PLACE), RobotUR.tool_down_pose
         )
 
-    def _save_images(self, folder):
-        image_name = str(datetime.now()) + '.png'
-        bridge = CvBridge()
-        for image_type, image in zip(['rgb', 'depth'], [self.rgb, self.depth]):
-            image_path = (self.parent_image_folder / folder / image_type).resolve()
-            os.chdir(image_path)
-            image = bridge.imgmsg_to_cv2(image, desired_encoding = 'passthrough')
-            cv2.imwrite(image_name, image)
-            image_name.chmod(0o777)  # Write permission for everybody
+    # def _save_images(self, folder):
+    #     image_name = str(datetime.now()) + '.png'
+    #     bridge = CvBridge()
+    #     for image_type, image in zip(['rgb', 'depth'], [self.rgb, self.depth]):
+    #         image_path = (self.parent_image_folder / folder / image_type).resolve()
+    #         os.chdir(image_path)
+    #         image = bridge.imgmsg_to_cv2(image, desired_encoding = 'passthrough')
+    #         cv2.imwrite(image_name, image)
+    #         image_name.chmod(0o777)  # Write permission for everybody
 
     #Funciton used to normalize the image
-    def _histeq(self,bins=255):
-        bridge = CvBridge()
-        image_histogram, bins = np.histogram(self.depth.flatten(), bins, density=True)
-        cdf = image_histogram.cumsum()  # cumulative distribution function
-        cdf = cdf / cdf[-1]  # normalize
-
-        # use linear interpolation of cdf to find new pixel values
-        image_equalized = np.interp(self.depth.flatten(), bins[:-1], cdf)
-        image_equalized = image_equalized.reshape(self.depth.shape)
-        self.depth = image_equalized*255
-        self.depth = bridge.cv2_to_imgmsg(self.depth, encoding = 'passthrough')
+    # def _histeq(self,bins=255):
+    #     bridge = CvBridge()
+    #     image_histogram, bins = np.histogram(self.depth.flatten(), bins, density=True)
+    #     cdf = image_histogram.cumsum()  # cumulative distribution function
+    #     cdf = cdf / cdf[-1]  # normalize
+    #
+    #     # use linear interpolation of cdf to find new pixel values
+    #     image_equalized = np.interp(self.depth.flatten(), bins[:-1], cdf)
+    #     image_equalized = image_equalized.reshape(self.depth.shape)
+    #     self.depth = image_equalized*255
+    #     self.depth = bridge.cv2_to_imgmsg(self.depth, encoding = 'passthrough')
 
 #
 # Main program

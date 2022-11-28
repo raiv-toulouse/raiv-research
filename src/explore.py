@@ -76,26 +76,19 @@ class ExploreWindow(QWidget):
         self.predict_center_x = x
         self.predict_center_y = y
         rgb_crop_pil = ImageTools.crop_xy(self.image, x, y, ImageTools.CROP_WIDTH, ImageTools.CROP_HEIGHT)
-        img = ImageTools.transform_image(rgb_crop_pil)  # Get the cropped 224 transformed image for rgb model
-        img = img.unsqueeze(0)  # To have a 4-dim tensor ([nb_of_images, channels, w, h])
-        return self.predict(img)
+        rgb_crop_pil.save('/home/phil/images/test.png')
+        return PredictTools.predict_from_pil_rgb_image(self.image_model, rgb_crop_pil)
 
     def predict_from_image(self):
         """ Load the images data """
         loaded_image = QFileDialog.getOpenFileName(self, 'Open image', '.', "Model files (*.png)",
                                                    options=QFileDialog.DontUseNativeDialog)
         if loaded_image[0]:
-            self.image = Image.open(loaded_image[0])
-            img = ImageTools.transform_image(self.image)  # Get the loaded images, resize in 224 and transformed in tensor
-            img = img.unsqueeze(0)  # To have a 4-dim tensor ([nb_of_images, channels, w, h])
-            pred = self.predict(img)
+            image_pil = Image.open(loaded_image[0])
+            pred = PredictTools.predict_from_pil_rgb_image(self.image_model, image_pil)
             prob, cl = self.canvas._compute_prob_and_class(pred)
             self.prediction_from_image.setText("La prédiction de l'image chargé est : " + str(prob) + " %")
             print(prob)
-
-    def predict(self, img):
-        pred = PredictTools.predict(self.image_model, img)
-        return pred
 
     def compute_map(self, start_coord, end_coord):
         """ Compute a list of predictions and ask the canvas to draw them

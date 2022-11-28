@@ -82,10 +82,7 @@ class NodeBestPrediction:
             image_bgr = cv2.cvtColor(image_rgb, cv2.COLOR_BGR2RGB)
             image_bgr_pil = ImageTools.numpy_to_pil(image_bgr)
 
-            img = ImageTools.transform_image(image_pil)  # Get the cropped transformed RGB image
-            #img = ImageTools.transform_image(image_bgr_pil)  # Get the cropped transformed BGR image
-            img = img.unsqueeze(0)  # To have a 4-dim tensor ([nb_of_images, channels, w, h])
-            pred = PredictTools.predict(self.model, img)
+            pred = PredictTools.predict_from_pil_rgb_image(self.model, image_bgr_pil)
             msg.proba = PredictTools.compute_prob_and_class(pred)
             self.predictions.append(msg)
             msg_list_pred.predictions = self.predictions
