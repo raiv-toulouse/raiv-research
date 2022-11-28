@@ -105,7 +105,7 @@ class CanvasExplore(QWidget):
         """ Display all predictions (green/red point + percentage of success) from self.all_preds list """
         threshold = self.parent.sb_threshold.value()
         self.all_preds.sort(key=lambda pred: pred[2][0][1].item(), reverse=True)
-        point_size_in_pixel = 4
+        point_size_in_pixel = 3
         for idx, (x, y , pred) in enumerate(self.all_preds):
             tensor_prob,tensor_cl = torch.max(pred, 1)
             if tensor_cl.item()==0 or (tensor_cl.item()==1 and tensor_prob.item()*100 < threshold):  # Fail
