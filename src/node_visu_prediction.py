@@ -27,7 +27,6 @@ class NodeVisuPrediction(QWidget):
         self.image = None
 
     def _change_image(self, req):
-        print('coucou')
         """ When a new webcam image arrives, store it in self.image """
         format = QImage.Format_RGB888
         image = QImage(req.data, req.width, req.height, format)
