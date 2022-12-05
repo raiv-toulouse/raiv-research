@@ -49,7 +49,7 @@ class PredictOnImageFilesWindow(QtWidgets.QMainWindow):
             self._timer.stop()
 
     def compute_prediction(self, file):
-        image = Image.open(file)
+        image = Image.open(file).convert('RGB')
         img = ImageTools.transform_image(image)  # Get the loaded images, resize in 224 and transformed in tensor
         img = img.unsqueeze(0)  # To have a 4-dim tensor ([nb_of_images, channels, w, h])
         pred = PredictTools.predict(self.image_model, img)
