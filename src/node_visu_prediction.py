@@ -3,7 +3,7 @@
 import sys
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QPoint
 from PyQt5.uic import loadUi
 import rospy
 from raiv_research.msg import ListOfPredictions
@@ -22,9 +22,20 @@ class NodeVisuPrediction(QWidget):
         rospy.init_node('node_visu_prediction')
         rospy.Subscriber("predictions", ListOfPredictions, self._update_predictions)
         rospy.Subscriber('new_image', Image, self._change_image)
-        self.prediction_threshold = 0.5  #rospy.get_param('~prediction_threshold') # threshold for success grasping prediction
+        self.sb_low.valueChanged.connect(self._low_value_change)
+        self.sb_high.valueChanged.connect(self._high_value_change)
+        self.prediction_min_threshold = self.sb_low.value()
+        self.prediction_max_threshold = self.sb_high.value()
         self.predictions = None
         self.image = None
+
+    def _low_value_change(self):
+        self.prediction_min_threshold = min(self.sb_low.value(), self.prediction_max_threshold)
+        self.repaint()
+
+    def _high_value_change(self):
+        self.prediction_max_threshold = max(self.sb_high.value(), self.prediction_min_threshold)
+        self.repaint()
 
     def _change_image(self, req):
         """ When a new webcam image arrives, store it in self.image """
@@ -37,21 +48,50 @@ class NodeVisuPrediction(QWidget):
         self.predictions = data.predictions
         self.repaint()
 
+    def _draw_histogram(self):
+        if self.predictions:
+            # generate the plot
+            self.ax = self.gv_plot.canvas.ax
+            # and the list of prediction's values
+            preds = [p.proba for p in self.predictions]
+            # Plot a histogram in 100 bins
+            N, bins, patches = self.ax.hist(preds, bins=100, range=(0,100), edgecolor='black', linewidth=1)
+            # The color of the histogram's bars depends on proba value
+            for i in range(len(N)):
+                if i < self.prediction_min_threshold:
+                    patches[i].set_facecolor('red')
+                elif i > self.prediction_max_threshold:
+                    patches[i].set_facecolor("green")
+                else:
+                    patches[i].set_facecolor("blue")
+
     def paintEvent(self, event):
         """ Display the last webcam image and draw predictions (green points if prediction > THRESHOLD otherwise red) """
-        qp = QPainter(self)
+        qp = QPainter(self.lbl_image)
         rect = event.rect()
+        point_size = 3
         if self.image:
             qp.drawImage(rect, self.image, rect)
         if self.predictions:
             for prediction in self.predictions:
                 x = prediction.x
                 y = prediction.y
-                if prediction.proba > self.prediction_threshold:
-                    qp.setPen(QPen(Qt.green, 3))
-                else:
-                    qp.setPen(QPen(Qt.red, 3))
+                if prediction.proba > self.prediction_max_threshold:
+                    qp.setPen(QPen(Qt.green, point_size))
+                elif prediction.proba < self.prediction_min_threshold:
+                    qp.setPen(QPen(Qt.red, point_size))
+                else: # Between min and max threshold
+                    qp.setPen(QPen(Qt.blue, point_size))
                 qp.drawPoint(x, y)
+            # First one is the best proba (so the futur picking point)
+            best_pred = self.predictions[0]
+            qp.setPen(Qt.blue)
+            qp.setFont(QFont('Decorative', 10))
+            #qp.drawText(best_pred.x, best_pred.y, Qt.AlignCenter, 'x')
+            qp.drawText(best_pred.x, best_pred.y, 'x')
+        # Draw the histogram
+        self._draw_histogram()
+        qp.end()
 
 
 if __name__ == '__main__':
