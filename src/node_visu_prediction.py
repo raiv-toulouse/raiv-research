@@ -24,18 +24,18 @@ class NodeVisuPrediction(QWidget):
         rospy.Subscriber('new_image', Image, self._change_image)
         self.sb_low.valueChanged.connect(self._low_value_change)
         self.sb_high.valueChanged.connect(self._high_value_change)
-        self.prediction_min_threshold = self.sb_low.value()
-        self.prediction_max_threshold = self.sb_high.value()
+        self.prediction_min_threshold = self.sb_low.value() / 100 # Percent => 0.xx
+        self.prediction_max_threshold = self.sb_high.value() / 100
         self.predictions = None
         self.image = None
 
     def _low_value_change(self):
-        self.prediction_min_threshold = min(self.sb_low.value(), self.prediction_max_threshold)
-        self.repaint()
+        self.prediction_min_threshold = min(self.sb_low.value() / 100, self.prediction_max_threshold)
+        self.update()
 
     def _high_value_change(self):
-        self.prediction_max_threshold = max(self.sb_high.value(), self.prediction_min_threshold)
-        self.repaint()
+        self.prediction_max_threshold = max(self.sb_high.value() / 100, self.prediction_min_threshold)
+        self.update()
 
     def _change_image(self, req):
         """ When a new webcam image arrives, store it in self.image """
@@ -46,28 +46,32 @@ class NodeVisuPrediction(QWidget):
     def _update_predictions(self,data):
         """ When a new list of predictions arrives, draw them """
         self.predictions = data.predictions
-        self.repaint()
+        self.update()
 
     def _draw_histogram(self):
-        if self.predictions:
-            # generate the plot
-            self.ax = self.gv_plot.canvas.ax
-            # and the list of prediction's values
-            preds = [p.proba for p in self.predictions]
-            # Plot a histogram in 100 bins
-            N, bins, patches = self.ax.hist(preds, bins=100, range=(0,100), edgecolor='black', linewidth=1)
-            # The color of the histogram's bars depends on proba value
-            for i in range(len(N)):
-                if i < self.prediction_min_threshold:
-                    patches[i].set_facecolor('red')
-                elif i > self.prediction_max_threshold:
-                    patches[i].set_facecolor("green")
-                else:
-                    patches[i].set_facecolor("blue")
+        # generate the plot
+        self.ax = self.gv_plot.canvas.ax
+        self.ax.cla()
+        # and the list of prediction's values
+        preds = [100*p.proba for p in self.predictions]
+        print(preds)
+        # Plot a histogram in 100 bins
+        N, bins, patches = self.ax.hist(preds, bins=100, range=(0,100), edgecolor='black', linewidth=1)
+        # The color of the histogram's bars depends on proba value
+        lower_percent = self.prediction_min_threshold * 100
+        higher_percent = self.prediction_max_threshold * 100
+        for i in range(len(N)):
+            if i < lower_percent:
+                patches[i].set_facecolor('red')
+            elif i > higher_percent:
+                patches[i].set_facecolor("green")
+            else:
+                patches[i].set_facecolor("blue")
+        self.gv_plot.canvas.draw_idle()
 
     def paintEvent(self, event):
         """ Display the last webcam image and draw predictions (green points if prediction > THRESHOLD otherwise red) """
-        qp = QPainter(self.lbl_image)
+        qp = QPainter(self)  #.lbl_image)
         rect = event.rect()
         point_size = 3
         if self.image:
@@ -85,12 +89,11 @@ class NodeVisuPrediction(QWidget):
                 qp.drawPoint(x, y)
             # First one is the best proba (so the futur picking point)
             best_pred = self.predictions[0]
-            qp.setPen(Qt.blue)
-            qp.setFont(QFont('Decorative', 10))
-            #qp.drawText(best_pred.x, best_pred.y, Qt.AlignCenter, 'x')
-            qp.drawText(best_pred.x, best_pred.y, 'x')
-        # Draw the histogram
-        self._draw_histogram()
+            qp.setPen(QPen(Qt.magenta, 2*point_size))
+            qp.drawPoint(best_pred.x, best_pred.y)
+            self.lbl_best_pred.setText(f'{best_pred.proba*100:.2f}')
+            # Draw the histogram
+            self._draw_histogram()
         qp.end()
 
 
