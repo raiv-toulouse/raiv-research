@@ -5,13 +5,13 @@ import rospy
 from raiv_camera_calibration.perspective_calibration import PerspectiveCalibration
 from raiv_libraries.robotUR import RobotUR
 from raiv_libraries.robot_with_vaccum_gripper import Robot_with_vaccum_gripper
-from raiv_research.srv import GetBestPrediction
+from raiv_research.srv import GetBestPrediction, ProcessNewImage
 import geometry_msgs.msg as geometry_msgs
 from raiv_libraries.image_tools import ImageTools
 from raiv_libraries.get_coord_node import InBoxCoord
-from raiv_libraries.srv import get_coordservice
-from raiv_libraries.srv import ClearPrediction, ClearPredictionResponse
-
+from raiv_libraries.srv import get_coordservice, PickingBoxIsEmpty, GetPickingBoxCentroid
+from raiv_libraries.srv import ClearPrediction
+from raiv_libraries import tools
 
 
 Z_PICK_ROBOT = 0.12 # Z coord before going down to pick
@@ -22,16 +22,31 @@ X_PLACE = -0.003
 Y_PLACE = -0.29
 Z_PLACE = 0.16  # Z coord to start place movement (in meter)
 
-rospy.wait_for_service('best_prediction_service')
-call_service = rospy.ServiceProxy('best_prediction_service', GetBestPrediction)
+# Declaration of services
+#
+# best_prediction_service
+rospy.wait_for_service('/best_prediction_service')
+best_prediction_service = rospy.ServiceProxy('/best_prediction_service', GetBestPrediction)
+# Clear_Prediction
 rospy.wait_for_service('/Clear_Prediction')
-call_clear = rospy.ServiceProxy('/Clear_Prediction', ClearPrediction)
+clear_prediction_service = rospy.ServiceProxy('/Clear_Prediction', ClearPrediction)
+# GetNewImage
+rospy.wait_for_service('/Process_new_image')
+process_new_image_service = rospy.ServiceProxy('/Process_new_image', ProcessNewImage)
+# In_box_coordService
+rospy.wait_for_service('/In_box_coordService')
+coord_service = rospy.ServiceProxy('/In_box_coordService', get_coordservice)
+# Is_Picking_Box_Empty
+rospy.wait_for_service('/Is_Picking_Box_Empty')
+is_picking_box_empty_service = rospy.ServiceProxy('/Is_Picking_Box_Empty', PickingBoxIsEmpty)
+# Get_picking_box_centroid
+rospy.wait_for_service('/Get_picking_box_centroid')
+get_picking_box_centroid_service = rospy.ServiceProxy('/Get_picking_box_centroid', GetPickingBoxCentroid)
 
-def xyz_to_pose(x, y, z):
-    return geometry_msgs.Pose(geometry_msgs.Vector3(x, y, z), RobotUR.tool_down_pose)
 
 if __name__=="__main__":
     import argparse
+    import time
 
     parser = argparse.ArgumentParser(description='Perform robot pick action at location received by best_prediction_service response')
     parser.add_argument('calibration_folder', type=str, help='calibration files folder')
@@ -40,49 +55,34 @@ if __name__=="__main__":
     rospy.init_node("node_move_robot_to_prediction")
     dPoint = PerspectiveCalibration(args.calibration_folder)
     robot = Robot_with_vaccum_gripper()
-    robot.go_to_xyz_position(X_OUT, Y_OUT, Z_OUT)  # Move the robot out of camera scope
+    picking_box_centroid = get_picking_box_centroid_service()
 
-
-    # We can now ask a service to get and process 3D images
-    coord_service_name = 'In_box_coordService'
-    rospy.wait_for_service(coord_service_name)
-    coord_service = rospy.ServiceProxy(coord_service_name, get_coordservice)
-
-    resp = call_service('classic', 'no manual')  # Pixel coord of best prediction without precision information
-    print('proba ---------------: ', resp.pred.proba)
-    coord_pixel = [resp.pred.x, resp.pred.y]
-    x, y, z = dPoint.from_2d_to_3d(coord_pixel)
-    pose_for_pick = geometry_msgs.Pose(geometry_msgs.Vector3(x, y, Z_PICK_ROBOT), RobotUR.tool_down_pose)
-    object_gripped = robot.pick(pose_for_pick)
-    object_gripped = robot.check_if_object_gripped()
-
-
-    while True:
-        robot.go_to_xyz_position(X_OUT, Y_OUT, Z_OUT, duration=2)
-        # refresh of depth image
-        resp_place = coord_service('random_no_swap', InBoxCoord.PLACE, InBoxCoord.IN_THE_BOX, ImageTools.CROP_WIDTH, ImageTools.CROP_HEIGHT, None, None)
-        rep = call_clear()  # Launch the clear service to clear all prediction
-
-
-        if object_gripped:
-            # Place the object
-            place_pose = xyz_to_pose(X_PLACE, Y_PLACE, Z_PLACE)
-            robot.place(place_pose)
-            robot.release_gripper()  # Switch off the gripper
-
-        else:
-            robot.release_gripper()  # Switch off the gripper
-
-        # The robot must go out of the camera field
-        robot.go_to_xyz_position(X_OUT, Y_OUT, Z_OUT, duration=2)
-
-        resp = call_service('classic', 'no manual')  # Pixel coord of best prediction without precision information
+    # The robot must go out of the camera field
+    robot.go_to_xyz_position(X_OUT, Y_OUT, Z_OUT, duration=2)
+    process_new_image_service()  # Ask for a new image and start its processing (generation of predictions)
+    while not is_picking_box_empty_service().empty_box:
+        # Go to box centroid, during this time, predictions are processed
+        coord_centroid = [picking_box_centroid.x_centroid, picking_box_centroid.y_centroid]
+        x, y, z = dPoint.from_2d_to_3d(coord_centroid)
+        robot.go_to_xyz_position(x, y, Z_PICK_ROBOT, duration=2)
+        resp = best_prediction_service() # We can now ask a service to get the best prediction
         print('proba ---------------: ', resp.pred.proba)
+        clear_prediction_service()  # Clear all predictions
+        # Pick the piece
         coord_pixel = [resp.pred.x, resp.pred.y]
         x, y, z = dPoint.from_2d_to_3d(coord_pixel)
         pose_for_pick = geometry_msgs.Pose(geometry_msgs.Vector3(x, y, Z_PICK_ROBOT), RobotUR.tool_down_pose)
-        object_gripped = robot.pick(pose_for_pick)
-        object_gripped = robot.check_if_object_gripped()
+        robot.pick(pose_for_pick)
+        # Next, go to OUT position (out of camera scope)
+        robot.go_to_xyz_position(X_OUT, Y_OUT, Z_OUT, duration=2) # The robot must go out of the camera field
+        process_new_image_service()  # Ask for a new image and start its processing (generation of predictions)
+        if robot.check_if_object_gripped(): # An object is gripped
+            # Place the object
+            resp_place = coord_service('random_no_swap', InBoxCoord.PLACE, InBoxCoord.IN_THE_BOX, ImageTools.CROP_WIDTH, ImageTools.CROP_HEIGHT, None, None)
+            place_pose = tools.xyz_to_pose(X_PLACE, Y_PLACE, Z_PLACE)
+            robot.place(place_pose)
+        robot.release_gripper()  # Switch off the gripper
+
 
 
 

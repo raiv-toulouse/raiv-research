@@ -24,9 +24,6 @@ from raiv_camera_calibration.perspective_calibration import PerspectiveCalibrati
 from raiv_libraries.robot_with_vaccum_gripper import Robot_with_vaccum_gripper
 from raiv_libraries.srv import get_coordservice
 from raiv_libraries.get_coord_node import InBoxCoord
-from raiv_libraries.robotUR import RobotUR
-import geometry_msgs.msg as geometry_msgs
-from sensor_msgs.msg import Image
 from raiv_libraries.image_tools import ImageTools
 from raiv_libraries import tools
 
@@ -52,11 +49,9 @@ def normalize(image, bins=255):
     return image_equalized.reshape(image.shape), cdf
 
 
-def xyz_to_pose(x, y, z):
-    return geometry_msgs.Pose(geometry_msgs.Vector3(x, y, z), RobotUR.tool_down_pose)
-
-
-#
+#from raiv_libraries.robotUR import RobotUR
+import geometry_msgs.msg as geometry_msgs
+from sensor_msgs.msg import Image
 # Main program
 #
 
@@ -96,10 +91,10 @@ while True:
     resp_place = coord_service('random', InBoxCoord.PLACE, InBoxCoord.IN_THE_BOX, ImageTools.CROP_WIDTH, ImageTools.CROP_HEIGHT, None, None)
 
     # Move robot to pick position
-    pick_pose = xyz_to_pose(resp_pick.x_robot, resp_pick.y_robot, Z_PICK_PLACE)
+    pick_pose = tools.xyz_to_pose(resp_pick.x_robot, resp_pick.y_robot, Z_PICK_PLACE)
     robot.pick(pick_pose)
     # Place the object
-    place_pose = xyz_to_pose(resp_place.x_robot, resp_place.y_robot, Z_PICK_PLACE)
+    place_pose = tools.xyz_to_pose(resp_place.x_robot, resp_place.y_robot, Z_PICK_PLACE)
     robot.place(place_pose)
     object_gripped = robot.check_if_object_gripped()  # Test if object is gripped
     robot.release_gripper()        # Switch off the gripper
