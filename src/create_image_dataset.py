@@ -2,7 +2,7 @@
 # coding: utf-8
 
 """
-Used to get picking images from selected positions. The images go to 'success/<rgb and depth>' or 'fail/<rgb and depth>' folders,
+Used to get picking images from selected positions. The images go to '<rgb AND depth>/<success OR fail>' folders,
 depending if the gripper succeed or not.
 
 - We need to establish a connection to the robot with the following command:
@@ -11,41 +11,41 @@ roslaunch raiv_libraries ur3_bringup_cartesian.launch robot_ip:=10.31.56.102 kin
 - Information from Arduino
 rosrun rosserial_arduino serial_node.py _port:=/dev/ttyACM0
 
+- To get an image :
+roslaunch realsense2_camera rs_camera.launch align_depth:=true
+
+- To get information about boxes :
+rosrun raiv_libraries get_coord_node.py
+
 - launch program:
 python create_image_dataset.py
 
 """
-import numpy as np
+import time
+
 import rospy
-from datetime import datetime
 from pathlib import Path
 import sys
-import cv2
 from raiv_camera_calibration.perspective_calibration import PerspectiveCalibration
 from raiv_libraries import tools
 from raiv_libraries.robot_with_vaccum_gripper import Robot_with_vaccum_gripper
-
 from raiv_libraries.image_tools import ImageTools
+from raiv_libraries.get_coord_node import InBoxCoord
 from raiv_libraries.srv import get_coordservice
 from raiv_libraries.robotUR import RobotUR
 from sensor_msgs.msg import Image
-from cv_bridge import CvBridge
 import geometry_msgs.msg as geometry_msgs
 from PyQt5.QtWidgets import *
 from PyQt5 import uic
-import os
+
 
 #
 # Constants
 #
-
-Z_PICK_PLACE = 0.1  # Z coord to start pick or place movement
 X_OUT = 0.0  # XYZ coord where the robot is out of camera scope
 Y_OUT = -0.3
-Z_OUT = 0.12
-PLACE_POSE = geometry_msgs.Pose(
-            geometry_msgs.Vector3(0.323, 0.1, Z_PICK_PLACE), RobotUR.tool_down_pose
-        )
+Z_OUT = 0.16
+
 
 class CreateImageDataset(QWidget):
     """
@@ -101,49 +101,41 @@ class CreateImageDataset(QWidget):
         self.robot.go_to_xyz_position(X_OUT, Y_OUT, Z_OUT)
         # A PerspectiveCalibration object to perform 2D => 3D conversion
         self.dPoint = PerspectiveCalibration(self.calibration_folder)
-        self.canvas.set_image(rospy.wait_for_message('/camera/color/image_raw', Image))
+        self._get_new_image()
 
     #
     # Public method
     #
     def process_click(self, px, py):
-        """ send the robot to this (px, py) position and store the image file in the right folder (success or fail) """
-        self._set_image(px,py)
-        # Move robot to pick position
-        pick_pose = self._pixel_to_pose(px, py)
-        object_gripped = self.robot.pick(pick_pose)
-        # If an object is gripped
-        if object_gripped:
-            # Place the object
-            self.robot.place(PLACE_POSE)
-            self._save_images('success')  # Save images in success folders
-        else:
-            self.robot._send_gripper_message(False)  # Switch off the gripper
-            self._save_images('fail')  # Save images in fail folders
-        # The robot must go out of the camera field
-        self.robot.go_to_xyz_position(X_OUT, Y_OUT, Z_OUT)
-        # Get a new image
-        self._set_image(px,py)
+        if self.robot:
+            """ send the robot to this (px, py) position and store the image file in the right folder (success or fail) """
+            response_from_coord_service = self.coord_service('fixed', InBoxCoord.PICK, InBoxCoord.IN_THE_BOX, ImageTools.CROP_WIDTH, ImageTools.CROP_HEIGHT, px, py)
+            self.canvas_preview.update_image(response_from_coord_service.rgb_crop)
+            # Move robot to pick position
+            pick_pose = self._pixel_to_pose(px, py)
+            self.robot.pick(pick_pose)
+            # The robot must go out of the camera field
+            self.robot.go_to_xyz_position(X_OUT, Y_OUT, Z_OUT)
+            object_gripped = self.robot.check_if_object_gripped()
+            print('Gripped' if object_gripped else 'NOT gripped')
+            self.robot.release_gripper()  # Switch off the gripper
+            tools.generate_and_save_rgb_depth_images(response_from_coord_service, self.image_folder, object_gripped)
+            self._get_new_image()
 
     #
     # Private methods
     #
-    def _set_image(self, px, py):
-        bridge = CvBridge()
-        """ Get an image from service and display it on the canvas """
-        resp = self.coord_service('fixed', ImageTools.PICK, ImageTools.IN_THE_BOX, ImageTools.CROP_WIDTH, ImageTools.CROP_HEIGHT, px, py)
-        self.rgb = resp.rgb_crop
-        self.depth = resp.depth_crop
+    def _get_new_image(self):
+        """ Get an new image from image_raw topic and display it on the canvas """
         self.canvas.set_image(rospy.wait_for_message('/camera/color/image_raw', Image))
-        self.depth = bridge.imgmsg_to_cv2(self.depth, desired_encoding='passthrough')
-        self._histeq()
+
 
     def _pixel_to_pose(self, px, py):
         """ Transpose pixel coord to XYZ coord (in the base robot frame) and return the corresponding frame """
         x, y, z = self.dPoint.from_2d_to_3d([px, py])
         print('xyz :', x, y, z)
         return geometry_msgs.Pose(
-            geometry_msgs.Vector3(x, y, Z_PICK_PLACE), RobotUR.tool_down_pose
+            geometry_msgs.Vector3(x, y, Z_OUT), RobotUR.tool_down_pose
         )
 
     # def _save_images(self, folder):

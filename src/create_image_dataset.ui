@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>830</width>
+    <width>837</width>
     <height>498</height>
    </rect>
   </property>
@@ -77,6 +77,16 @@
       </widget>
      </item>
      <item>
+      <widget class="canvas_preview" name="canvas_preview" native="true">
+       <property name="minimumSize">
+        <size>
+         <width>100</width>
+         <height>100</height>
+        </size>
+       </property>
+      </widget>
+     </item>
+     <item>
       <spacer name="verticalSpacer">
        <property name="orientation">
         <enum>Qt::Vertical</enum>
@@ -98,6 +108,12 @@
    <class>canvas_create_image_dataset</class>
    <extends>QWidget</extends>
    <header>canvas_create_image_dataset.h</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>canvas_preview</class>
+   <extends>QWidget</extends>
+   <header>canvas_preview.h</header>
    <container>1</container>
   </customwidget>
  </customwidgets>
