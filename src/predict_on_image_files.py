@@ -50,17 +50,8 @@ class PredictOnImageFilesWindow(QtWidgets.QMainWindow):
     def compute_prediction(self, file):
         pil_rgb_img = Image.open(file).convert('RGB')
         pred = Cnn.predict_from_pil_rgb_image(self.model, pil_rgb_img)
-        prob, cl = self._compute_prob_and_class(pred)
-        return math.floor(prob)
-
-    def _compute_prob_and_class(self, pred):
-        """ Retrieve class (success or fail) and its associated percentage from pred """
-        prob, cl = torch.max(pred, 1)
-        if cl.item() == 0:  # Fail
-            prob = 100 * (1 - prob.item())
-        else:  # Success
-            prob = 100 * prob.item()
-        return prob, cl
+        prob, cl = Cnn.compute_prob_and_class(pred)
+        return math.floor(100*prob)
 
     def add_pixmap(self, pixmap, file_name, prob):
         if not pixmap.isNull():
