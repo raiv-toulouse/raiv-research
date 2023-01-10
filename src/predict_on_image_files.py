@@ -1,13 +1,12 @@
 import os
 from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtGui import QPen
 from PyQt5.QtWidgets import QFileDialog
-from raiv_libraries.prediction_tools import PredictTools
 from raiv_libraries.image_tools import ImageTools
 from PIL import Image
-import cv2
 import torch
 import math
+from raiv_libraries.rgb_cnn import RgbCnn
+from raiv_libraries.cnn import Cnn
 
 """
 Display a Qt window with images from a folder with their prediction from a model.
@@ -24,7 +23,7 @@ class PredictOnImageFilesWindow(QtWidgets.QMainWindow):
         fname = QFileDialog.getOpenFileName(self, 'Open CKPT model file', '/common/work/model_trained', "Model files (*.ckpt)",
                                             options=QFileDialog.DontUseNativeDialog)
         self.wrong = self.total = 0
-        self.image_model, self.inference_model = PredictTools.load_model(fname[0])  # Load the selected models
+        self.model = RgbCnn.load_ckpt_model_file(fname[0])   # Load the selected model
         self.scrollArea = QtWidgets.QScrollArea(widgetResizable=True)
         self.setCentralWidget(self.scrollArea)
         content_widget = QtWidgets.QWidget()
@@ -49,10 +48,8 @@ class PredictOnImageFilesWindow(QtWidgets.QMainWindow):
             self._timer.stop()
 
     def compute_prediction(self, file):
-        image = Image.open(file).convert('RGB')
-        img = ImageTools.transform_image(image)  # Get the loaded images, resize in 224 and transformed in tensor
-        img = img.unsqueeze(0)  # To have a 4-dim tensor ([nb_of_images, channels, w, h])
-        pred = PredictTools.predict(self.image_model, img)
+        pil_rgb_img = Image.open(file).convert('RGB')
+        pred = Cnn.predict_from_pil_rgb_image(self.model, pil_rgb_img)
         prob, cl = self._compute_prob_and_class(pred)
         return math.floor(prob)
 
@@ -78,6 +75,7 @@ class PredictOnImageFilesWindow(QtWidgets.QMainWindow):
             hBox.addWidget(label_image)
             hBox.addWidget(label_text)
             self._lay.addLayout(hBox)
+
 
 if __name__ == '__main__':
     import sys
