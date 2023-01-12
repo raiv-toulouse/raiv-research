@@ -3,7 +3,8 @@ from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 import torch
 from raiv_libraries.image_tools import ImageTools
-from raiv_libraries.prediction_tools import PredictTools
+from raiv_libraries.cnn import Cnn
+
 
 class CanvasExplore(QWidget):
 
@@ -81,21 +82,21 @@ class CanvasExplore(QWidget):
         qp.drawRect(self.select_start.x(), self.select_start.y(), w, h)
 
     def _draw_rectangle(self, qp):
-        if self.parent.inference_model:  # A model exists, we can do inference
+        if self.parent.model:  # A model exists, we can do inference
             x = self.center.x() - ImageTools.CROP_WIDTH / 2
             y = self.center.y() - ImageTools.CROP_HEIGHT / 2
             qp.setRenderHint(QPainter.Antialiasing)
             qp.setPen(QPen(Qt.blue, 5))
             qp.drawPoint(self.center)
             pred = self.parent.predict_from_point(self.center.x(), self.center.y())  # calculate the prediction wih CNN
-            prob, cl = self._compute_prob_and_class(pred)
+            prob, cl = Cnn.compute_prob_and_class(pred)
             fail_or_success = 'Fail' if cl.item()==0 else 'Success'
-            text = f'{fail_or_success} : {prob:.1f}%'
+            text = f'{fail_or_success} : {prob*100:.1f}%'
             qp.setPen(Qt.black)
             qp.setFont(QFont('Decorative', 14))
             qp.drawText(x, y, text)
             threshold = self.parent.sb_threshold.value()
-            if prob > threshold:  # Success
+            if prob*100 > threshold:  # Success
                 qp.setPen(QPen(Qt.green, 1, Qt.DashLine))
             else:  # Fail
                 qp.setPen(QPen(Qt.red, 1, Qt.DashLine))
@@ -116,21 +117,11 @@ class CanvasExplore(QWidget):
                 qp.setPen(QPen(Qt.blue, point_size_in_pixel))  # The best prediction
             qp.drawPoint(x, y)
             qp.setPen(Qt.black)
-            prob, cl = self._compute_prob_and_class(pred)
+            prob, cl = Cnn.compute_prob_and_class(pred)
             if self.parent.cb_print_values.isChecked():
                 qp.setFont(QFont('Decorative', 8))
                 text = f'{prob:.1f}%'
                 qp.drawText(x, y, text)
-
-    def _compute_prob_and_class(self, pred):
-        """ Retrieve class (success or fail) and its associated percentage from pred """
-        prob, cl = torch.max(pred, 1)
-        if cl.item() == 0:  # Fail
-            prob = 100 * (1 - prob.item())
-        else:  # Success
-            prob = 100 * prob.item()
-        return prob, cl
-
 
 
 

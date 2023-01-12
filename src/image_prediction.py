@@ -1,9 +1,9 @@
 import os
 import torch
 import shutil
-from raiv_libraries.image_model import ImageModel
 from raiv_libraries.image_tools import ImageTools
 from PIL import Image
+from raiv_libraries.rgb_cnn import RgbCnn
 
 
 FAIL=0
@@ -14,8 +14,7 @@ class TestPred:
     def __init__(self, ckpt_file, image_dir, destination):
         self.image_dir = image_dir
         self.destination = destination
-        self.image_model = ImageModel(model_name='resnet18', ckpt_dir=os.path.dirname(ckpt_file))
-        self.inference_model = self.image_model.load_ckpt_model_file(os.path.basename(ckpt_file))
+        self.model = RgbCnn.load_ckpt_model_file(ckpt_file)
         files = self.load_files(image_dir+'/fail')
         self.predict_image(files, image_dir, FAIL, destination)
         files = self.load_files(image_dir+'/success')
@@ -32,13 +31,13 @@ class TestPred:
         for i in range(len(files)):
             if type_recherche == FAIL :
                 chemin = image_dir + '/fail/' + str(files[i])
-            if type_recherche == SUCCESS :
+            else :
                 chemin = image_dir + '/success/' + str(files[i])
 
             self.image = Image.open(chemin)
             img = ImageTools.transform_image(self.image)  # Get the loaded images, resize in 256 and transformed in tensor
             img = img.unsqueeze(0)  # To have a 4-dim tensor ([nb_of_images, channels, w, h])
-            features, preds = self.image_model.evaluate_image(img, False)  # No processing
+            features, preds = self.model.evaluate_image(img, False)  # No processing
             proba_success = torch.exp(preds[0][1]).item()
             proba_success = round(proba_success, 3)
 

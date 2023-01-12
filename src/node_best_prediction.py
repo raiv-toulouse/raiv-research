@@ -2,6 +2,10 @@
 
 import rospy
 import math
+
+from raiv_libraries.cnn import Cnn
+
+from raiv_libraries.rgb_cnn import RgbCnn
 from raiv_research.srv import GetBestPrediction, GetBestPredictionResponse
 from raiv_research.msg import Prediction, ListOfPredictions
 from raiv_libraries.srv import get_coordservice
@@ -9,9 +13,7 @@ from raiv_libraries.srv import PickingBoxIsEmpty
 from raiv_libraries.srv import ClearPrediction, ClearPredictionResponse
 from raiv_research.srv import ProcessNewImage, ProcessNewImageResponse
 from raiv_libraries.get_coord_node import InBoxCoord
-import torch
 from raiv_libraries.image_tools import ImageTools
-from raiv_libraries.prediction_tools import PredictTools
 from sensor_msgs.msg import Image
 
 
@@ -45,7 +47,7 @@ class NodeBestPrediction:
         self.invalidation_radius = invalidation_radius  # When a prediction is selected, we invalidate all the previous predictions in this radius
         self.image_topic = image_topic
         self.model_path = ckpt_model_file
-        self.model, self.inference_model = PredictTools.load_model(self.model_path)
+        self.model = RgbCnn.load_ckpt_model_file(self.model_path)   # Load the selected model
         self.picking_point = None # No picking point yet
         self.prediction_processing = False
         ### Appel du service emptybox
@@ -70,8 +72,9 @@ class NodeBestPrediction:
                 msg.y = resp.y_pixel
                 image_pil = ImageTools.ros_msg_to_pil(resp.rgb_crop)
                 # Compute the prediction for this cropped image
-                pred = PredictTools.predict_from_pil_rgb_image(self.model, image_pil)
-                msg.proba = PredictTools.compute_prob_and_class(pred)
+                pred = RgbCnn.predict_from_pil_rgb_image(self.model, image_pil)
+                msg.proba, _ = Cnn.compute_prob_and_class(pred)
+                msg.proba = msg.proba*100
                 self.predictions.append(msg)
                 self.predictions.sort(key=lambda x: x.proba, reverse=True)  # sort by decreasing proba
                 msg_list_pred.predictions = self.predictions
