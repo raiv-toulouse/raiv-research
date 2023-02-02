@@ -14,11 +14,10 @@ rosrun rosserial_arduino serial_node.py _port:=/dev/ttyACM0
 python random_pick_birdview.py <images_folder> <calibration_files_folder>
 
 """
-import numpy as np
 import rospy
 from pathlib import Path
 import sys
-import cv2
+import os
 from cv_bridge import CvBridge
 from raiv_camera_calibration.perspective_calibration import PerspectiveCalibration
 from raiv_libraries.robot_with_vaccum_gripper import Robot_with_vaccum_gripper
@@ -26,6 +25,7 @@ from raiv_libraries.srv import get_coordservice
 from raiv_libraries.get_coord_node import InBoxCoord
 from raiv_libraries.image_tools import ImageTools
 from raiv_libraries import tools
+import argparse
 
 #
 # Constants
@@ -38,37 +38,33 @@ X_OUT = 0.21  # XYZ coord where the robot is out of camera scope (in meter)
 Y_OUT = -0.27
 Z_OUT = 0.12
 
+def print_info(object_gripped, nb_success, nb_fail):
+    os.system('clear')
+    print('##############################################')
+    print()
+    print('SUCCESS' if object_gripped else 'FAIL')
+    print()
+    print(f'Success images : {nb_success}')
+    print(f'Fail images    : {nb_fail}')
+    print('##############################################')
+    print()
+    rep = None
+    while rep!='y' and rep!='n':
+        rep = input("Do you want to save this sample? ('y' or 'n') : ")
+    return rep
 
-
-def normalize(image, bins=255):
-    image_histogram, bins = np.histogram(image.flatten(), bins, density=True)
-    cdf = image_histogram.cumsum()  # cumulative distribution function
-    cdf = cdf / cdf[-1]  # normalize
-    # use linear interpolation of cdf to find new pixel values
-    image_equalized = np.interp(image.flatten(), bins[:-1], cdf)
-    return image_equalized.reshape(image.shape), cdf
-
-
-#from raiv_libraries.robotUR import RobotUR
-import geometry_msgs.msg as geometry_msgs
-from sensor_msgs.msg import Image
+#
 # Main program
 #
-
-# Check if number of arguments is OK
-if len(sys.argv) != 3:
-    print("Syntax : python random_picks_birdview.py <images_folder> <calibration_files_folder>")
-    exit(1)
-
-# Check if the <calibration_files_folder>" exists
-calibration_folder = Path(sys.argv[2])
-if not calibration_folder.exists():
-    print("This folder doesn't exist : {}".format(sys.argv[2]))
-    exit(2)
+parser = argparse.ArgumentParser(description="Get picking images from random position and put them in '<rgb or depth>'/<'success' or 'fail>' folders")
+parser.add_argument('images_folder', type=str, help="images folder for sub-folders 'rgb' and 'depth'")
+parser.add_argument('calibration_folder', type=str, help='camera calibration folder')
+parser.add_argument('-c', '--check', default=False, action='store_true', help='perform a manual check for each sample (user has to validate if the program saves images')
+args = parser.parse_args()
 
 # Create, if they don't exist, <images_folder>/rgb/success, <images_folder>/depth/success,
 # <images_folder>/rgb/fail and <images_folder>/depth/fail folders
-parent_image_folder = Path(sys.argv[1])
+parent_image_folder = Path(args.images_folder)
 tools.create_rgb_depth_folders(parent_image_folder)
 
 rospy.init_node('random_picks_birdview')
@@ -81,8 +77,10 @@ rospy.wait_for_service(coord_service_name)
 coord_service = rospy.ServiceProxy(coord_service_name, get_coordservice)
 
 # A PerspectiveCalibration object to perform 2D => 3D conversion
-dPoint = PerspectiveCalibration(calibration_folder)
+dPoint = PerspectiveCalibration(args.calibration_folder)
 bridge = CvBridge()
+nb_success = 0
+nb_fail = 0
 # Main loop to get image
 while True:
 
@@ -97,7 +95,12 @@ while True:
     place_pose = tools.xyz_to_pose(resp_place.x_robot, resp_place.y_robot, Z_PICK_PLACE)
     robot.place(place_pose)
     object_gripped = robot.check_if_object_gripped()  # Test if object is gripped
+    save_response = print_info(object_gripped, nb_success, nb_fail)
     robot.release_gripper()        # Switch off the gripper
     robot.go_to_xyz_position(X_OUT, Y_OUT, Z_OUT, duration=2)  # The robot must go out of the camera field
-
-    tools.generate_and_save_rgb_depth_images(resp_pick, parent_image_folder, object_gripped)
+    if save_response == 'y':
+        nb_images = tools.generate_and_save_rgb_depth_images(resp_pick, parent_image_folder, object_gripped)
+        if object_gripped:
+            nb_success += nb_images
+        else:
+            nb_fail += nb_images
