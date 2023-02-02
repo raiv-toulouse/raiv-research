@@ -90,9 +90,11 @@ class CanvasExplore(QWidget):
             qp.drawPoint(self.center)
             pred = self.parent.predict_from_point(self.center.x(), self.center.y())  # calculate the prediction wih CNN
             prob, cl = Cnn.compute_prob_and_class(pred)
-            fail_or_success = 'Fail' if cl.item()==0 else 'Success'
+            is_fail = cl.item()==0
+            fail_or_success = 'Fail' if is_fail else 'Success'
             text = f'{fail_or_success} : {prob*100:.1f}%'
-            qp.setPen(Qt.black)
+            self.parent.lbl_pred_result.setText(text)
+            qp.setPen(Qt.red if is_fail else Qt.green)
             qp.setFont(QFont('Decorative', 14))
             qp.drawText(x, y, text)
             threshold = self.parent.sb_threshold.value()

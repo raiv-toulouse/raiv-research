@@ -114,7 +114,7 @@ class ExploreWindow(QWidget):
     def move_robot(self):
         """  Move robot out of camera scope then get and display a new image """
         if self.robot:
-            self.robot.go_to_xyz_position(X_OUT, Y_OUT, Z_OUT)
+            self.robot.go_to_xyz_position(X_OUT, Y_OUT, Z_OUT, duration=4)
             self._set_image()
         else:
             QMessageBox.warning(self, "No robot", "Don't forget to initialize the robot")

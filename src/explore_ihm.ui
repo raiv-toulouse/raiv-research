@@ -54,6 +54,18 @@
       </widget>
      </item>
      <item>
+      <widget class="QLabel" name="lbl_pred_result">
+       <property name="font">
+        <font>
+         <pointsize>14</pointsize>
+        </font>
+       </property>
+       <property name="text">
+        <string/>
+       </property>
+      </widget>
+     </item>
+     <item>
       <widget class="QPushButton" name="btn_update_image">
        <property name="text">
         <string>Update image</string>
