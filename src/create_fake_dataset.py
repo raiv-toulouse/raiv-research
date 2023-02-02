@@ -69,8 +69,7 @@ class CreateFakeDataset(QWidget):
     #
 
     def _select_image_folder(self):
-#        dir = QFileDialog.getExistingDirectory(self, "Select image directory", "/common/work/stockage_banque_image/0_5_soufflet", QFileDialog.ShowDirsOnly)
-        dir = '/common/work/stockage_banque_image/0_5_soufflet/1_cylinder_fake'
+        dir = QFileDialog.getExistingDirectory(self, "Select image directory", "/common/work/stockage_banque_image/0_5_soufflet", QFileDialog.ShowDirsOnly)
         if dir:
             self.image_folder = Path(dir)
             tools.create_rgb_depth_folders(self.image_folder)
