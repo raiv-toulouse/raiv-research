@@ -66,6 +66,37 @@
       </widget>
      </item>
      <item>
+      <layout class="QHBoxLayout" name="horizontalLayout_4">
+       <item>
+        <widget class="QLabel" name="label_3">
+         <property name="text">
+          <string>x</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QLineEdit" name="edt_x"/>
+       </item>
+       <item>
+        <widget class="QLabel" name="label_4">
+         <property name="text">
+          <string>y</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QLineEdit" name="edt_y"/>
+       </item>
+       <item>
+        <widget class="QPushButton" name="btn_compute">
+         <property name="text">
+          <string>Compute</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item>
       <widget class="QPushButton" name="btn_update_image">
        <property name="text">
         <string>Update image</string>
