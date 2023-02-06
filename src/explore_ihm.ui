@@ -40,9 +40,23 @@
       </widget>
      </item>
      <item>
-      <widget class="QPushButton" name="btn_load_images">
+      <widget class="QPushButton" name="btn_load_crop_image">
        <property name="text">
-        <string>Load image for prediction</string>
+        <string>Load cropped image for prediction</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="btn_load_image">
+       <property name="text">
+        <string>Load image</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="btn_save_image">
+       <property name="text">
+        <string>Save image</string>
        </property>
       </widget>
      </item>
