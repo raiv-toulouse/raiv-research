@@ -20,6 +20,7 @@ from PIL import Image
 from PyQt5.QtWidgets import QMessageBox
 from raiv_libraries.rgb_cnn import RgbCnn
 from raiv_libraries.cnn import Cnn
+import os
 
 # global variables
 Z_PICK_ROBOT = 0.15  # Z coord before going down to pick
@@ -49,6 +50,7 @@ class ExploreWindow(QWidget):
         self.sb_threshold.valueChanged.connect(self._change_threshold)
         # attributs
         self.dPoint = PerspectiveCalibration(calibration_folder)
+        self.default_images_folder = '.'
         self.image_controller = SimpleImageController(image_topic='/camera/color/image_raw')
         self.model = None
         self.robot = None
@@ -64,8 +66,10 @@ class ExploreWindow(QWidget):
 
     def predict_from_image(self):
         """ Load the images data """
-        loaded_image = QFileDialog.getOpenFileName(self, 'Open image', '.', "Image files (*.png)",
+        loaded_image = QFileDialog.getOpenFileName(self, 'Open image', self.default_images_folder, "Image files (*.png *.jpg)",
                                                    options=QFileDialog.DontUseNativeDialog)
+        print(loaded_image)
+        self.default_images_folder = os.path.dirname(loaded_image[0])
         if loaded_image[0]:
             image_pil = Image.open(loaded_image[0])
             pred = RgbCnn.predict_from_pil_rgb_image(self.model, image_pil)
