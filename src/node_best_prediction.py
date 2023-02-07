@@ -2,9 +2,7 @@
 
 import rospy
 import math
-
 from raiv_libraries.cnn import Cnn
-
 from raiv_libraries.rgb_cnn import RgbCnn
 from raiv_research.srv import GetBestPrediction, GetBestPredictionResponse
 from raiv_research.msg import Prediction, ListOfPredictions
@@ -15,10 +13,11 @@ from raiv_research.srv import ProcessNewImage, ProcessNewImageResponse
 from raiv_libraries.get_coord_node import InBoxCoord
 from raiv_libraries.image_tools import ImageTools
 from sensor_msgs.msg import Image
+import PIL
 
 
 IMAGE_TOPIC = "/camera/color/image_raw"
-
+DEBUG = False
 
 class NodeBestPrediction:
     """
@@ -62,6 +61,7 @@ class NodeBestPrediction:
         # Message used to send the list of all predictions
         msg_list_pred = ListOfPredictions()
         #self.coord_serv('random', InBoxCoord.PICK, InBoxCoord.ON_OBJECT, ImageTools.CROP_WIDTH, ImageTools.CROP_HEIGHT, None, None)
+        ind_image = 0
         while not self._is_picking_box_empty():
             if self.prediction_processing:
                 # Ask 'In_box_coordService' service for a random point in the picking box located on one of the objects
@@ -74,12 +74,16 @@ class NodeBestPrediction:
                 # Compute the prediction for this cropped image
                 pred = RgbCnn.predict_from_pil_rgb_image(self.model, image_pil)
                 msg.proba, _ = Cnn.compute_prob_and_class(pred)
-                msg.proba = msg.proba*100
+                if DEBUG:
+                    # Save image for DEBUG
+                    name = f'img_{ind_image}_{msg.x}_{msg.y}_{msg.proba*100:.2f}.png'
+                    image_pil.save('../images_debug/'+name)
+                    ind_image += 1
                 self.predictions.append(msg)
                 self.predictions.sort(key=lambda x: x.proba, reverse=True)  # sort by decreasing proba
                 msg_list_pred.predictions = self.predictions
                 self.pub_predictions.publish(msg_list_pred)  # Publish the current list of predictions [ [x1,y1,prediction_1], ..... ]
-            rospy.sleep(0.01)
+            rospy.sleep(0.001)
         print('End of bin picking operation')
 
 
@@ -106,10 +110,8 @@ class NodeBestPrediction:
         if not self.predictions: # This list is empty
             raise rospy.ServiceException("self.predictions : empty list")
         else:  # Return the best prediction from 'predictions' list
-            best_prediction = self.predictions[0]
-            for prediction in self.predictions:
-                if prediction.proba > best_prediction.proba:
-                    best_prediction = prediction
+            best_prediction = max(self.predictions, key=lambda p: p.proba)
+            print(f'Best prediction = {best_prediction}')
         self.picking_point = (best_prediction.x, best_prediction.y)
         return GetBestPredictionResponse(best_prediction)
 
