@@ -24,7 +24,7 @@ class NodeVisuPrediction(QWidget):
         rospy.Subscriber('new_image', Image, self._change_image)
         self.sb_low.valueChanged.connect(self._low_value_change)
         self.sb_high.valueChanged.connect(self._high_value_change)
-        self.prediction_min_threshold = self.sb_low.value() / 100 # Percent => 0.xx
+        self.prediction_min_threshold = self.sb_low.value() / 100  # [0,1]
         self.prediction_max_threshold = self.sb_high.value() / 100
         self.predictions = None
         self.image = None
@@ -53,17 +53,16 @@ class NodeVisuPrediction(QWidget):
         self.ax = self.gv_plot.canvas.ax
         self.ax.cla()
         # and the list of prediction's values
-        preds = [100*p.proba for p in self.predictions]
-        print(preds)
+        preds = [p.proba for p in self.predictions]
         # Plot a histogram in 100 bins
-        N, bins, patches = self.ax.hist(preds, bins=100, range=(0,100), edgecolor='black', linewidth=1)
+        N, bins, patches = self.ax.hist(preds, bins=100, range=(0,1), edgecolor='black', linewidth=1)
         # The color of the histogram's bars depends on proba value
-        lower_percent = self.prediction_min_threshold * 100
-        higher_percent = self.prediction_max_threshold * 100
+        lower_percent = self.prediction_min_threshold
+        higher_percent = self.prediction_max_threshold
         for i in range(len(N)):
-            if i < lower_percent:
+            if i < lower_percent*100:
                 patches[i].set_facecolor('red')
-            elif i > higher_percent:
+            elif i > higher_percent*100:
                 patches[i].set_facecolor("green")
             else:
                 patches[i].set_facecolor("blue")
@@ -91,7 +90,7 @@ class NodeVisuPrediction(QWidget):
             best_pred = self.predictions[0]
             qp.setPen(QPen(Qt.magenta, 2*point_size))
             qp.drawPoint(best_pred.x, best_pred.y)
-            self.lbl_best_pred.setText(f'{best_pred.proba*100:.2f}')
+            self.lbl_best_pred.setText(f'{best_pred.proba:.2f}')
             # Draw the histogram
             self._draw_histogram()
         qp.end()

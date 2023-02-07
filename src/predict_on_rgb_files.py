@@ -45,6 +45,7 @@ class PredictOnImageFilesWindow(QtWidgets.QMainWindow):
             self._timer.stop()
 
     def compute_prediction(self, file):
+        """ Compute the prediction [0,1] for a PIL cropped image """
         pil_rgb_img = Image.open(file).convert('RGB')
         pred = RgbCnn.predict_from_pil_rgb_image(self.model, pil_rgb_img)
         prob, cl = Cnn.compute_prob_and_class(pred)
