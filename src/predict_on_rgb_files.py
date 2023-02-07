@@ -16,7 +16,7 @@ SUCCESS_THRESHOLD = 50 # A success if prediction > threshold
 class PredictOnImageFilesWindow(QtWidgets.QMainWindow):
     def __init__(self, parent=None):
         super(PredictOnImageFilesWindow, self).__init__(parent)
-        self.dir = QFileDialog.getExistingDirectory(self, "Select an image folder", "/common/work/stockage_banque_image", QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks)
+        self.dir = QFileDialog.getExistingDirectory(self, "Select an image folder", "/common/work/images_storage", QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks)
         self.is_success_dir = self.dir.endswith('success')
         fname = QFileDialog.getOpenFileName(self, 'Open CKPT model file', '/common/work/model_trained', "Model files (*.ckpt)",
                                             options=QFileDialog.DontUseNativeDialog)
@@ -40,7 +40,6 @@ class PredictOnImageFilesWindow(QtWidgets.QMainWindow):
             pixmap = QtGui.QPixmap(file)
             self.add_pixmap(pixmap, file_name, prob)
         except StopIteration:
-            print('fin')
             stat = f'Wrong predictions = {self.wrong} / {self.total}'
             self._lay.addWidget(QtWidgets.QLabel(stat))
             self._timer.stop()
@@ -49,15 +48,16 @@ class PredictOnImageFilesWindow(QtWidgets.QMainWindow):
         pil_rgb_img = Image.open(file).convert('RGB')
         pred = RgbCnn.predict_from_pil_rgb_image(self.model, pil_rgb_img)
         prob, cl = Cnn.compute_prob_and_class(pred)
-        return math.floor(100 * prob)
+        return prob
 
     def add_pixmap(self, pixmap, file_name, prob):
         if not pixmap.isNull():
             label_image = QtWidgets.QLabel(pixmap=pixmap)
-            ch = f"{prob}%, file = {file_name}"
+            percentage = prob*100
+            ch = f"{percentage:.2f}%, file = {file_name}"
             label_text = QtWidgets.QLabel(ch)
             self.total += 1
-            if (prob < 50 and self.is_success_dir) or (prob >= 50 and not self.is_success_dir): # wrong prediction
+            if (percentage < SUCCESS_THRESHOLD and self.is_success_dir) or (percentage >= SUCCESS_THRESHOLD and not self.is_success_dir): # wrong prediction
                 label_text.setStyleSheet("QLabel { background-color : red; }")
                 self.wrong += 1
             hBox = QtWidgets.QHBoxLayout()
