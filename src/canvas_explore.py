@@ -15,6 +15,12 @@ class CanvasExplore(QWidget):
         self.previous_image = None
         self.all_preds = None
         self.select_start = self.select_end = None
+        self.from_selected_point = False # True when 'Compute' button pressed in GUI (we specify the (x,y) coord for the pred
+
+    def compute_pred_at_x_y(self):
+        self.from_selected_point = True
+        self.pressed = True
+        self.update()
 
     def set_image(self,img):
         self.image = QImage(img.tobytes("raw", "RGB"), img.width, img.height, QImage.Format_RGB888)  # Convert PILImage to QImage
@@ -83,12 +89,19 @@ class CanvasExplore(QWidget):
 
     def _draw_rectangle(self, qp):
         if self.parent.model:  # A model exists, we can do inference
-            x = self.center.x() - ImageTools.CROP_WIDTH / 2
-            y = self.center.y() - ImageTools.CROP_HEIGHT / 2
+            if self.from_selected_point: # (x,y) = coordinates read from GUI
+                x = int(self.parent.edt_x.text())
+                y = int(self.parent.edt_y.text())
+                self.from_selected_point = False
+            else:  # Used when we move the mouse over the image, (x,y) = cursor position
+                x = self.center.x()
+                y = self.center.y()
+                self.parent.edt_x.setText(str(x))
+                self.parent.edt_y.setText(str(y))
             qp.setRenderHint(QPainter.Antialiasing)
             qp.setPen(QPen(Qt.blue, 5))
-            qp.drawPoint(self.center)
-            pred = self.parent.predict_from_point(self.center.x(), self.center.y())  # calculate the prediction wih CNN
+            qp.drawPoint(x, y)
+            pred = self.parent.predict_from_point(x, y)  # calculate the prediction wih CNN
             prob, cl = Cnn.compute_prob_and_class(pred)
             is_fail = cl.item()==0
             fail_or_success = 'Fail' if is_fail else 'Success'
@@ -102,7 +115,10 @@ class CanvasExplore(QWidget):
                 qp.setPen(QPen(Qt.green, 1, Qt.DashLine))
             else:  # Fail
                 qp.setPen(QPen(Qt.red, 1, Qt.DashLine))
-            qp.drawRect(x, y, ImageTools.CROP_WIDTH, ImageTools.CROP_HEIGHT)
+            left = int(x - ImageTools.CROP_WIDTH/2)
+            top = int(y - ImageTools.CROP_HEIGHT/2)
+            print('drawRect')
+            qp.drawRect(left, top, ImageTools.CROP_WIDTH, ImageTools.CROP_HEIGHT)
 
     def _draw_pred(self, qp):
         """ Display all predictions (green/red point + percentage of success) from self.all_preds list """

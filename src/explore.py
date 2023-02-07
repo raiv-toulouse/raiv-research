@@ -43,11 +43,14 @@ class ExploreWindow(QWidget):
         self.title = 'Camera'
         # event handlers
         self.btn_load_model.clicked.connect(self._load_model)
-        self.btn_load_images.clicked.connect(self.predict_from_image)
+        self.btn_load_image.clicked.connect(self._load_image)
+        self.btn_save_image.clicked.connect(self._save_image)
+        self.btn_load_crop_image.clicked.connect(self.predict_from_image)
         self.btn_update_image.clicked.connect(self._set_image)
         self.btn_change_image.clicked.connect(self.move_robot)
         self.btn_activate_robot.clicked.connect(self._activate_robot)
         self.sb_threshold.valueChanged.connect(self._change_threshold)
+        self.btn_compute.clicked.connect(self._compute_pred_at_x_y)
         # attributs
         self.dPoint = PerspectiveCalibration(calibration_folder)
         self.default_images_folder = '.'
@@ -56,6 +59,22 @@ class ExploreWindow(QWidget):
         self.robot = None
         self._set_image()
         self._load_model()
+
+    def _load_image(self):
+        loaded_image = QFileDialog.getOpenFileName(self, 'Open image', self.default_images_folder, "Image files (*.png *.jpg)",
+                                                   options=QFileDialog.DontUseNativeDialog)
+        if loaded_image[0]:
+            img_pil = Image.open(loaded_image[0])
+            self.canvas.set_image(img_pil)
+            self.image = img_pil
+
+    def _save_image(self):
+        filename = QFileDialog.getSaveFileName(self, 'Save image to file', '.', "Image files (*.png *.jpg)",
+                                                   options=QFileDialog.DontUseNativeDialog)
+        self.image.save(filename[0]+'/.png', 'png')
+
+    def _compute_pred_at_x_y(self):
+        self.canvas.compute_pred_at_x_y()
 
     def predict_from_point(self, x, y):
         """ Predict probability and class for a cropped image at (x,y) """
@@ -66,9 +85,8 @@ class ExploreWindow(QWidget):
 
     def predict_from_image(self):
         """ Load the images data """
-        loaded_image = QFileDialog.getOpenFileName(self, 'Open image', self.default_images_folder, "Image files (*.png *.jpg)",
+        loaded_image = QFileDialog.getOpenFileName(self, 'Open cropped image', self.default_images_folder, "Image files (*.png *.jpg)",
                                                    options=QFileDialog.DontUseNativeDialog)
-        print(loaded_image)
         self.default_images_folder = os.path.dirname(loaded_image[0])
         if loaded_image[0]:
             image_pil = Image.open(loaded_image[0])
