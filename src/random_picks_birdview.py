@@ -86,7 +86,7 @@ while True:
 
     # Get all information from the camera
     resp_pick = coord_service('random', InBoxCoord.PICK, InBoxCoord.ON_OBJECT, tools.BIG_CROP_WIDTH, tools.BIG_CROP_HEIGHT, None, None)
-    resp_place = coord_service('random', InBoxCoord.PLACE, InBoxCoord.IN_THE_BOX, ImageTools.CROP_WIDTH, ImageTools.CROP_HEIGHT, None, None)
+    resp_place = coord_service('random', InBoxCoord.PLACE, InBoxCoord.IN_THE_BOX, None, None, None, None)
 
     # Move robot to pick position
     pick_pose = tools.xyz_to_pose(resp_pick.x_robot, resp_pick.y_robot, Z_PICK_PLACE)
