@@ -1,22 +1,18 @@
 import sys
 from PyQt5.QtWidgets import *
 from PyQt5 import uic
-import cv2
-import os
 import time
-import torch
-import torchvision
-import numpy as np
-import matplotlib.pyplot as plt
 import matplotlib
 import rospy
 from raiv_libraries.robotUR import RobotUR
 from raiv_libraries.robot_with_vaccum_gripper import Robot_with_vaccum_gripper
-from raiv_libraries.simple_image_controller import SimpleImageController
 from raiv_camera_calibration.perspective_calibration import PerspectiveCalibration
 import geometry_msgs.msg as geometry_msgs
 from raiv_libraries.image_tools import ImageTools
-from PIL import Image
+import PIL.Image
+from pathlib import Path
+from raiv_libraries.rgb_and_depth_cnn import RgbAndDepthCnn
+from sensor_msgs.msg import Image
 from PyQt5.QtWidgets import QMessageBox
 from raiv_libraries.rgb_cnn import RgbCnn
 from raiv_libraries.cnn import Cnn
@@ -37,8 +33,9 @@ class ExploreWindow(QWidget):
     Load an image and a CNN model from a CKPT file and display the prediction for some sub-images at some specific points
     """
 
-    def __init__(self, calibration_folder):
+    def __init__(self, calibration_folder, rgb_and_depth):
         super().__init__()
+        self.rgb_and_depth = rgb_and_depth  # True : RGB + DEPTH model, False : only RGB model
         uic.loadUi("explore_ihm.ui", self)  # needs the canvas_explore.py file in the current directory
         self.title = 'Camera'
         # event handlers
@@ -54,24 +51,34 @@ class ExploreWindow(QWidget):
         # attributs
         self.dPoint = PerspectiveCalibration(calibration_folder)
         self.default_images_folder = '.'
-        self.image_controller = SimpleImageController(image_topic='/camera/color/image_raw')
+        #self.image_controller = RgbAndDepthImageController()
+        self.rgb_topic = '/camera/color/image_raw'
+        self.depth_topic = '/depth_256_image'
         self.model = None
         self.robot = None
         self._set_image()
         self._load_model()
+        self.canvas.setup_after_creation()
 
     def _load_image(self):
-        loaded_image = QFileDialog.getOpenFileName(self, 'Open image', self.default_images_folder, "Image files (*.png *.jpg)",
+        loaded_image = QFileDialog.getOpenFileName(self, 'Open image', self.default_images_folder, "Image files (*.png)",
                                                    options=QFileDialog.DontUseNativeDialog)
         if loaded_image[0]:
-            img_pil = Image.open(loaded_image[0])
-            self.canvas.set_image(img_pil)
+            img_pil = PIL.Image.open(loaded_image[0])
             self.image = img_pil
+            if self.rgb_and_depth:
+                filename_without_ext = os.path.splitext(loaded_image[0])[0]
+                depth_pil = PIL.Image.open(filename_without_ext+'_depth.png')
+            else:
+                depth_pil = None
+            self.canvas.set_image(img_pil, depth_pil)
 
     def _save_image(self):
-        filename = QFileDialog.getSaveFileName(self, 'Save image to file', '.', "Image files (*.png *.jpg)",
+        filename = QFileDialog.getSaveFileName(self, 'Save image to file', '.', "Image files (*.png)",
                                                    options=QFileDialog.DontUseNativeDialog)
-        self.image.save(filename[0]+'/.png', 'png')
+        self.image.save(filename[0]+'.png', 'png')
+        if self.rgb_and_depth:
+            self.depth_image.save(filename[0]+'_depth.png', 'png')
 
     def _compute_pred_at_x_y(self):
         self.canvas.compute_pred_at_x_y()
@@ -81,7 +88,11 @@ class ExploreWindow(QWidget):
         self.predict_center_x = x
         self.predict_center_y = y
         rgb_crop_pil = ImageTools.crop_xy(self.image, x, y, ImageTools.CROP_WIDTH, ImageTools.CROP_HEIGHT)
-        return RgbCnn.predict_from_pil_rgb_image(self.model, rgb_crop_pil)
+        if self.rgb_and_depth:
+            depth_crop_pil = ImageTools.crop_xy(self.depth_image, x, y, ImageTools.CROP_WIDTH, ImageTools.CROP_HEIGHT)
+            return RgbAndDepthCnn.predict_from_pil_rgb_and_depth_images(self.model, rgb_crop_pil, depth_crop_pil)
+        else:
+            return RgbCnn.predict_from_pil_rgb_image(self.model, rgb_crop_pil)
 
     def predict_from_image(self):
         """ Load the images data """
@@ -89,7 +100,7 @@ class ExploreWindow(QWidget):
                                                    options=QFileDialog.DontUseNativeDialog)
         self.default_images_folder = os.path.dirname(loaded_image[0])
         if loaded_image[0]:
-            image_pil = Image.open(loaded_image[0])
+            image_pil = PIL.Image.open(loaded_image[0])
             pred = RgbCnn.predict_from_pil_rgb_image(self.model, image_pil)
             prob, cl = Cnn.compute_prob_and_class(pred)
             self.lbl_result_map.setText(f"The prediction for this image is : {prob*100:.2f}%" )
@@ -124,7 +135,10 @@ class ExploreWindow(QWidget):
         fname = QFileDialog.getOpenFileName(self, 'Open CKPT model file', '.', "Model files (*.ckpt)",
                                             options=QFileDialog.DontUseNativeDialog)
         if fname[0]:
-            self.model = RgbCnn.load_ckpt_model_file(fname[0])  # Load the selected models
+            if self.rgb_and_depth: # model for RGB and DEPTH images
+                self.model = RgbAndDepthCnn.load_ckpt_model_file(fname[0])
+            else:  # model for only RGB images
+                self.model = RgbCnn.load_ckpt_model_file(fname[0])  # Load the selected models
             ckpt_model_name = os.path.basename(fname[0])  # Only the name, without path
             self.lbl_model_name.setText(ckpt_model_name)
 
@@ -143,9 +157,13 @@ class ExploreWindow(QWidget):
 
     def _set_image(self):
         """ Get an image from topic and display it on the canvas """
-        img, width, height = self.image_controller.get_image()
-        self.canvas.set_image(img)
-        self.image = img
+        msg_rgb = rospy.wait_for_message(self.rgb_topic, Image)
+        msg_depth = rospy.wait_for_message(self.depth_topic, Image)
+        pil_rgb = ImageTools.ros_msg_to_pil(msg_rgb)
+        pil_depth = ImageTools.ros_msg_to_pil(msg_depth)
+        self.canvas.set_image(pil_rgb, pil_depth)
+        self.image = pil_rgb
+        self.depth_image = pil_depth
 
     def _compute_all_preds(self, start_coord, end_coord):
         """ Compute a list of predictions like :
@@ -176,11 +194,12 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Test a CKPT file model and perform robot pick action.')
     parser.add_argument('calibration_folder', type=str, help='calibration files folder')
+    parser.add_argument('--rgb_and_depth', default=False, action='store_true', help='For RGB + DEPTH model')
     args = parser.parse_args()
 
     rospy.init_node('explore')
     rate = rospy.Rate(0.5)
     app = QApplication(sys.argv)
-    gui = ExploreWindow(args.calibration_folder)
+    gui = ExploreWindow(args.calibration_folder, args.rgb_and_depth)
     gui.show()
     sys.exit(app.exec_())

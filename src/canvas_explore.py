@@ -16,14 +16,22 @@ class CanvasExplore(QWidget):
         self.all_preds = None
         self.select_start = self.select_end = None
         self.from_selected_point = False # True when 'Compute' button pressed in GUI (we specify the (x,y) coord for the pred
+        self.image = None
+        self.depth_image = None
+
+    def setup_after_creation(self):
+        """ These variables can't be initialized in the __init__ constructor (=> BUG) """
+        self.rgb_and_depth = self.parent.rgb_and_depth
+        self.depth_canvas = self.parent.canvas_depth
 
     def compute_pred_at_x_y(self):
         self.from_selected_point = True
         self.pressed = True
         self.update()
 
-    def set_image(self,img):
+    def set_image(self,img, depth_img=None):
         self.image = QImage(img.tobytes("raw", "RGB"), img.width, img.height, QImage.Format_RGB888)  # Convert PILImage to QImage
+        self.depth_image = QImage(depth_img.tobytes("raw", "RGB"), depth_img.width, depth_img.height, QImage.Format_RGB888)  # Convert PILImage to QImage
         self.setMinimumSize(self.image.width(), self.image.height())
         self.previous_image = None
         self.all_preds = None
@@ -72,6 +80,8 @@ class CanvasExplore(QWidget):
         qp = QPainter(self)
         rect = event.rect()
         qp.drawImage(rect, self.image, rect)
+        if self.rgb_and_depth:  # Model with RGN adn DEPTH images
+            self.depth_canvas.setPixmap(QPixmap.fromImage(self.depth_image))
         if self.moving or self.pressed:
             self._draw_rectangle(qp)
         if self.all_preds:
@@ -117,7 +127,6 @@ class CanvasExplore(QWidget):
                 qp.setPen(QPen(Qt.red, 1, Qt.DashLine))
             left = int(x - ImageTools.CROP_WIDTH/2)
             top = int(y - ImageTools.CROP_HEIGHT/2)
-            print('drawRect')
             qp.drawRect(left, top, ImageTools.CROP_WIDTH, ImageTools.CROP_HEIGHT)
 
     def _draw_pred(self, qp):
