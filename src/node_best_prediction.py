@@ -6,6 +6,7 @@ from raiv_libraries.cnn import Cnn
 from raiv_libraries.rgb_cnn import RgbCnn
 from raiv_research.srv import GetBestPrediction, GetBestPredictionResponse
 from raiv_research.msg import Prediction, ListOfPredictions
+from raiv_research.msg import RgbAndDepthImages
 from raiv_libraries.srv import get_coordservice
 from raiv_libraries.srv import PickingBoxIsEmpty
 from raiv_libraries.srv import ClearPrediction, ClearPredictionResponse
@@ -16,7 +17,8 @@ from sensor_msgs.msg import Image
 import PIL
 
 
-IMAGE_TOPIC = "/camera/color/image_raw"
+RGB_IMAGE_TOPIC = "/camera/color/image_raw"
+DEPTH_IMAGE_TOPIC = "/camera/aligned_depth_to_color/image_raw"
 DEBUG = False
 
 class NodeBestPrediction:
@@ -35,29 +37,32 @@ class NodeBestPrediction:
     """
     def __init__(self, ckpt_model_file, invalidation_radius, image_topic):
         rospy.init_node('node_best_prediction')
-        # List of all predictions made for some random points
-        self.predictions = []
-        # Provide the 'best_prediction_service' service
-        rospy.Service('best_prediction_service', GetBestPrediction, self._process_service)
-        self.pub_image = rospy.Publisher('new_image', Image, queue_size=10)
-        self._process_new_image(None)
-        # Publish the 'predictions' topic (a list of all Prediction)
-        self.pub_predictions = rospy.Publisher('predictions', ListOfPredictions, queue_size=10)
+        # Provide these services
+        rospy.Service('/best_prediction_service', GetBestPrediction, self._best_prediction_service)
+        rospy.Service('/Process_new_images', ProcessNewImage, self._process_new_images)
+        # Publish these topics
+        self.pub_images = rospy.Publisher('/new_images', RgbAndDepthImages, queue_size=10)
+        self.pub_predictions = rospy.Publisher('/predictions', ListOfPredictions, queue_size=10)
+        ### Use these services
+        rospy.wait_for_service('/Is_Picking_Box_Empty')
+        self.is_picking_box_empty_service = rospy.ServiceProxy('/Is_Picking_Box_Empty', PickingBoxIsEmpty)
+        rospy.wait_for_service('/In_box_coordService')
+        self.coord_serv = rospy.ServiceProxy('/In_box_coordService', get_coordservice)
+        # Attributs
         self.invalidation_radius = invalidation_radius  # When a prediction is selected, we invalidate all the previous predictions in this radius
         self.image_topic = image_topic
         self.model_path = ckpt_model_file
         self.model = RgbCnn.load_ckpt_model_file(self.model_path)   # Load the selected model
         self.picking_point = None # No picking point yet
         self.prediction_processing = False
-        ### Appel du service emptybox
-        rospy.wait_for_service('/Is_Picking_Box_Empty')
-        self.is_picking_box_empty_service = rospy.ServiceProxy('/Is_Picking_Box_Empty', PickingBoxIsEmpty)
-        rospy.Service('Clear_Prediction', ClearPrediction, self._clear_service)
-        rospy.Service('Process_new_image', ProcessNewImage, self._process_new_image)
-        rospy.wait_for_service('In_box_coordService')
-        self.coord_serv = rospy.ServiceProxy('In_box_coordService', get_coordservice)
+        self.predictions = [] # List of all predictions made for some random points
 
-    def process_bin_picking(self):
+        #self._process_new_image(None)
+
+    def generate_predictions(self):
+        """
+        Main method which generates a list of predictions and publish it on the /predictions topic
+        """
         # Message used to send the list of all predictions
         msg_list_pred = ListOfPredictions()
         #self.coord_serv('random', InBoxCoord.PICK, InBoxCoord.ON_OBJECT, ImageTools.CROP_WIDTH, ImageTools.CROP_HEIGHT, None, None)
@@ -80,45 +85,53 @@ class NodeBestPrediction:
                     image_pil.save('../images_debug/'+name)
                     ind_image += 1
                 self.predictions.append(msg)
-                self.predictions.sort(key=lambda x: x.proba, reverse=True)  # sort by decreasing proba
+                #self.predictions.sort(key=lambda x: x.proba, reverse=True)  # sort by decreasing proba
                 msg_list_pred.predictions = self.predictions
                 self.pub_predictions.publish(msg_list_pred)  # Publish the current list of predictions [ [x1,y1,prediction_1], ..... ]
             rospy.sleep(0.001)
         print('End of bin picking operation')
 
+    # Methods used when a service is called
+    #
+    def _process_new_images(self, req):
+        """
+        Get new RGB and DEPTH images and publish them to the new_images topic (for node_visu_prediction.py and get_coord_node.py)
+        Called by /Process_new_images service
+        """
+        msg_image = rospy.wait_for_message(RGB_IMAGE_TOPIC, Image)
+        msg_depth_image = rospy.wait_for_message(DEPTH_IMAGE_TOPIC, Image)
+        msg = RgbAndDepthImages()
+        msg.rgb_image = msg_image
+        msg.depth_image = msg_depth_image
+        self.pub_images.publish(msg)
+        self.predictions = []
+        self.prediction_processing = True
+        return ProcessNewImageResponse()
+
+    def _best_prediction_service(self, req):
+        """
+        Called by /Process_new_image service
+        """
+        # Find best prediction
+        if not self.predictions: # This list is empty
+            raise rospy.ServiceException("self.predictions : empty list in _best_prediction_service")
+        else:  # Return the best prediction from 'predictions' list
+            best_prediction = max(self.predictions, key=lambda p: p.proba)
+            print(f'Best prediction = {best_prediction}')
+            self.picking_point = (best_prediction.x, best_prediction.y)
+            return GetBestPredictionResponse(best_prediction)
+
+    # Other methods
 
     def _is_picking_box_empty(self):
         """
-        Test if picking box is empty
+        Test if picking box is empty.
+        Called when we use the /Is_Picking_Box_Empty service
         """
         picking_box_empty = self.is_picking_box_empty_service().empty_box
         if picking_box_empty:
             self.predictions = []
         return picking_box_empty
-
-    def _process_new_image(self, req):
-        """
-        Get a new image and publish it to the new_image topic (for node_visu_prediction.py )
-        """
-        msg_image = rospy.wait_for_message(IMAGE_TOPIC, Image)
-        self.pub_image.publish(msg_image)
-        self.prediction_processing = True
-        return ProcessNewImageResponse()
-
-    def _process_service(self, req):
-        # Find best prediction
-        if not self.predictions: # This list is empty
-            raise rospy.ServiceException("self.predictions : empty list")
-        else:  # Return the best prediction from 'predictions' list
-            best_prediction = max(self.predictions, key=lambda p: p.proba)
-            print(f'Best prediction = {best_prediction}')
-        self.picking_point = (best_prediction.x, best_prediction.y)
-        return GetBestPredictionResponse(best_prediction)
-
-    def _clear_service(self, req):
-        self.predictions = []
-        self.prediction_processing = False
-        return ClearPredictionResponse()
 
     #
     # If we take into account an invalidation radius
@@ -146,6 +159,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
     try:
         node_best_pred = NodeBestPrediction(args.ckpt_model_file, args.invalidation_radius, args.image_topic)
-        node_best_pred.process_bin_picking()
+        node_best_pred.generate_predictions()
     except rospy.ROSInterruptException:
         pass
