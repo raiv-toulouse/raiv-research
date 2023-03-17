@@ -38,7 +38,7 @@ X_OUT = 0.21  # XYZ coord where the robot is out of camera scope (in meter)
 Y_OUT = -0.27
 Z_OUT = 0.12
 
-def print_info(object_gripped, nb_success, nb_fail):
+def print_info(object_gripped, nb_success, nb_fail, check):
     os.system('clear')
     print('##############################################')
     print()
@@ -48,9 +48,12 @@ def print_info(object_gripped, nb_success, nb_fail):
     print(f'Fail images    : {nb_fail}')
     print('##############################################')
     print()
-    rep = None
-    while rep!='y' and rep!='n':
-        rep = input("Do you want to save this sample? ('y' or 'n') : ")
+    if check:   # If manual check, we ask user if we need to save images
+        rep = None
+        while rep!='y' and rep!='n':
+            rep = input("Do you want to save this sample? ('y' or 'n') : ")
+    else:
+        rep = 'y'
     return rep
 
 #
@@ -75,7 +78,6 @@ robot.go_to_xyz_position(X_OUT, Y_OUT, Z_OUT)  # Go out of camera scope
 coord_service_name = 'In_box_coordService'
 rospy.wait_for_service(coord_service_name)
 coord_service = rospy.ServiceProxy(coord_service_name, get_coordservice)
-
 # A PerspectiveCalibration object to perform 2D => 3D conversion
 dPoint = PerspectiveCalibration(args.calibration_folder)
 bridge = CvBridge()
@@ -83,11 +85,9 @@ nb_success = 0
 nb_fail = 0
 # Main loop to get image
 while True:
-
     # Get all information from the camera
     resp_pick = coord_service('random', InBoxCoord.PICK, InBoxCoord.ON_OBJECT, tools.BIG_CROP_WIDTH, tools.BIG_CROP_HEIGHT, None, None)
     resp_place = coord_service('random', InBoxCoord.PLACE, InBoxCoord.IN_THE_BOX, None, None, None, None)
-
     # Move robot to pick position
     pick_pose = tools.xyz_to_pose(resp_pick.x_robot, resp_pick.y_robot, Z_PICK_PLACE)
     robot.pick(pick_pose)
@@ -95,7 +95,7 @@ while True:
     place_pose = tools.xyz_to_pose(resp_place.x_robot, resp_place.y_robot, Z_PICK_PLACE)
     robot.place(place_pose)
     object_gripped = robot.check_if_object_gripped()  # Test if object is gripped
-    save_response = print_info(object_gripped, nb_success, nb_fail)
+    save_response = print_info(object_gripped, nb_success, nb_fail, args.check)
     robot.release_gripper()        # Switch off the gripper
     robot.go_to_xyz_position(X_OUT, Y_OUT, Z_OUT, duration=2)  # The robot must go out of the camera field
     if save_response == 'y':
