@@ -30,6 +30,7 @@ from raiv_camera_calibration.perspective_calibration import PerspectiveCalibrati
 from raiv_libraries import tools
 from raiv_libraries.robot_with_vaccum_gripper import Robot_with_vaccum_gripper
 from raiv_libraries.image_tools import ImageTools
+import raiv_libraries.tools
 from raiv_libraries.get_coord_node import InBoxCoord
 from raiv_libraries.srv import get_coordservice
 from raiv_libraries.robotUR import RobotUR
@@ -106,7 +107,7 @@ class CreateImageDataset(QWidget):
     def process_click(self, px, py):
         if self.robot:
             """ send the robot to this (px, py) position and store the image file in the right folder (success or fail) """
-            response_from_coord_service = self.coord_service('fixed', InBoxCoord.PICK, InBoxCoord.IN_THE_BOX, ImageTools.CROP_WIDTH, ImageTools.CROP_HEIGHT, px, py)
+            response_from_coord_service = self.coord_service('fixed', InBoxCoord.PICK, InBoxCoord.IN_THE_BOX, tools.BIG_CROP_WIDTH, tools.BIG_CROP_HEIGHT, px, py)
             self.canvas_preview.update_image(response_from_coord_service.rgb_crop)
             # Move robot to pick position
             pick_pose = self._pixel_to_pose(px, py)
